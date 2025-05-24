@@ -4,6 +4,32 @@ import { pb } from "../lib/db";
 import { client } from "@/lib/ai"
 import pdf from "pdf-parse"
 
+const PREP_SYSTEM_PROMPT = `
+You are an expert math teacher. You will be given an assignment completed by a student (already graded by a teacher).
+Your job is to prepare feedback for what the student should work on and a list of 2-3 problems you create based on the what the student needs to work on.
+Return a JSON object in the following form:
+
+{
+    "title": string,
+    "feedback": string,
+    "problems": [
+        {
+            "question": string,
+            "solution": [
+                string
+            ]
+        }
+    ]
+}
+
+The title should be the name of the concept you decide the student needs to work on.
+The feedback should be 3-5 sentences.
+Each problem you create should contain a solution, which is an array where each element is a string containing a step along the path to solve the problem.
+Do not wrap your response in '\`\`\`json' or anything else, just return the JSON object.
+Ensure ALL \\ are properly escaped in your response! This is very important.
+Always repond with the given JSON object, even if the information you recieve is unexpected.
+`
+
 const server = serve({
     routes: {
         "/*": index,
@@ -40,6 +66,58 @@ const server = serve({
                 const title = modelResponse[0]
                 const summary = modelResponse[modelResponse.length-1];
                 return Response.json({title, summary});
+            }
+        },
+
+        "/api/prep": {
+            GET: async (req) => {
+                const { searchParams } = new URL(req.url);
+                const userId: string = searchParams.get("id");
+
+                const {items: assignments} = await pb.collection("assignments")
+                    .getList(1, 50, {
+                        filter: `userId = "${userId}"`,
+                        sort: '-created',
+                    });
+                const promises = assignments.slice(0,5).map(async (x)=>{
+                    const fileName = x.file;
+                    const fileUrl = `http://127.0.0.1:8090/api/files/assignments/${x.id}/${fileName}`;
+                    console.log(fileUrl);
+                    const response = await fetch(fileUrl);
+                    if (!response.ok) {
+                        throw new Error(`Failed to download PDF: ${response.statusText}`);
+                    }
+                    const buffer = await response.arrayBuffer();
+                    const pdfBuffer = Buffer.from(buffer);
+                    const pdfText = (await pdf(pdfBuffer)).text;
+                    const aiResponse = await client.chat.completions.create({
+                        model: "qwen-3-32b",
+                        messages: [
+                            { role: "system", content: PREP_SYSTEM_PROMPT },
+                            { role: "user", content: pdfText.slice(0, 4_000) }
+                        ],
+                        max_tokens: 5_000,
+                    })
+                    console.log(aiResponse.choices[0]?.message?.content.split("</think>")[1].trim());
+                    const jsonResponse = JSON.parse(aiResponse.choices[0]?.message?.content.split("</think>")[1].trim() ?? "");
+                    return jsonResponse
+                })
+
+                const responses = await Promise.all(promises);
+
+                pb.autoCancellation(false);
+                responses.forEach(async (x)=>{
+                    console.log(x, userId);
+                    await pb.collection('prep').create({
+                        ...x,
+                        userId
+                    });
+                })
+                pb.autoCancellation(true);
+
+                return Response.json({
+                    status: "Success"
+                })
             }
         }
     },
