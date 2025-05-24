@@ -9,8 +9,8 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { pb } from "@/lib/db";
 import { useState } from "react";
+import { pb } from "@/lib/db";
 
 export function LoginForm({
     className,
@@ -18,13 +18,13 @@ export function LoginForm({
 }: { className: string | undefined, isRegister: boolean }) {
 
     const [errorMessage, setErrorMessage] = useState();
-
     async function login(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
         try {
             const email = event.currentTarget.elements.email.value;
             const password = event.currentTarget.elements.password.value;
             const authData = await pb.collection("users").authWithPassword(email, password);
+            window.location.replace("/");
         } catch (e) {
             setErrorMessage(e.message);
         }
@@ -43,6 +43,8 @@ export function LoginForm({
                     password,
                     passwordConfirm
                 });
+            const authData = await pb.collection("users").authWithPassword(email, password);
+                window.location.replace("/");
         } catch (e) {
             setErrorMessage(e.message);
         }
