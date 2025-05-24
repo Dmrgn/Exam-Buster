@@ -1,6 +1,10 @@
 # Exam Buster
 
-A hackathon project to help students prepare for an exam by uploading past assignments from the semester assignments and getting taylored feedback along with a study plan and sample problems to solve.
+A web app to help students prepare for an exam.
+Just uploading past assignments from the semester and get tailored feedback along with a study plan and sample problems to solve.
+Supercharged with Cerebras inference.
+
+Made for [Cerebras.ai](https://www.cerebras.ai/) + OpenRouter hackathon.
 
 ## Features
 
