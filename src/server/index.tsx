@@ -43,7 +43,7 @@ const server = serve({
                 });
                 const assignment = await pb.collection("assignments").getOne(item);
                 const fileName = assignment.file;
-                const fileUrl = `http://127.0.0.1:8090/api/files/assignments/${item}/${fileName}`;
+                const fileUrl = `${process.env.POCKETBASE_URL}/api/files/assignments/${item}/${fileName}`;
                 const response = await fetch(fileUrl);
                 if (!response.ok) {
                     throw new Error(`Failed to download PDF: ${response.statusText}`);
@@ -81,7 +81,7 @@ const server = serve({
                     });
                 const promises = assignments.slice(0,5).map(async (x)=>{
                     const fileName = x.file;
-                    const fileUrl = `http://127.0.0.1:8090/api/files/assignments/${x.id}/${fileName}`;
+                    const fileUrl = `${process.env.POCKETBASE_URL}/api/files/assignments/${x.id}/${fileName}`;
                     console.log(fileUrl);
                     const response = await fetch(fileUrl);
                     if (!response.ok) {
