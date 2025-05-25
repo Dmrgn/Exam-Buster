@@ -5,8 +5,7 @@
     "type": "module",
     "main": "src/index.tsx",
     "module": "src/index.tsx",
-    "packageManager": "bun@latest",
-    "engines": { "node": "22.16.0" },
+    "packageManager": "bun@1.2.14",
     "scripts": {
         "dev": "bun src/server/index.tsx",
         "start": "NODE_ENV=production bun src/server/index.tsx",
