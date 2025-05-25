@@ -1,10 +1,11 @@
 {
-    "name": "bun-react-template",
+    "name": "exambuster",
     "version": "0.1.0",
     "private": true,
     "type": "module",
     "main": "src/index.tsx",
     "module": "src/index.tsx",
+    "packageManager": "bun@1.2.13",
     "scripts": {
         "dev": "bun src/server/index.tsx",
         "start": "NODE_ENV=production bun src/server/index.tsx",
