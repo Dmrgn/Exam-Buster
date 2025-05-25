@@ -5,7 +5,7 @@
     "type": "module",
     "main": "src/index.tsx",
     "module": "src/index.tsx",
-    "packageManager": "pnpm@latest",
+    "packageManager": "bun@latest",
     "scripts": {
         "dev": "bun src/server/index.tsx",
         "start": "NODE_ENV=production bun src/server/index.tsx",
