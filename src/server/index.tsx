@@ -28,6 +28,8 @@ Each problem you create should contain a solution, which is an array where each 
 Do not wrap your response in '\`\`\`json' or anything else, just return the JSON object.
 Ensure ALL \\ are properly escaped in your response! This is very important.
 Always repond with the given JSON object, even if the information you recieve is unexpected.
+If you would like to write a math statement, then use AsciiMath syntax surrounded by \` characters. For example: \`frac(10)(4x) approx 2^(12)\`.
+NEVER use LaTeX syntax or surround math statements with $ or $$ or $$$.
 `
 
 const server = serve({
