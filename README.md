@@ -11,7 +11,7 @@ Made for [Cerebras.ai](https://www.cerebras.ai/) + OpenRouter hackathon.
 - User authentication and data storage via **PocketBase**
 - Upload and list assignments with AI generated summaries
 - Create interactive study plans with
-  - Taylored problems
+  - Tailored problems
   - Step-by-step solutions
 - Responsive UI built with tailwind and shadcn
 
