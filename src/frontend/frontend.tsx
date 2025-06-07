@@ -13,24 +13,26 @@ import { Register } from "./Register";
 import { Error404 } from "./Error404";
 
 const elem = document.getElementById("root")!;
-const route = window.location.pathname;
-console.log(route);
-function Path({route}) {
-    switch(route) {
-        case "/":
-            return <App />
+
+/**
+ * Simple client-side router based on window.location.pathname
+ */
+function Router() {
+    const path = window.location.pathname;
+    switch (path) {
         case "/login":
-            return <Login />
+            return <Login />;
         case "/register":
-            return <Register />
+            return <Register />;
+        case "/":
+            return <App />;
         default:
-            return <Error404 />
+            return <Error404 />;
     }
 }
-const app = (
+
+createRoot(elem).render(
     <StrictMode>
-        <Path route={route} ></Path>
+        <Router />
     </StrictMode>
 );
-
-createRoot(elem).render(app);

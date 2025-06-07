@@ -1,7 +1,9 @@
 # dependencies (bun install)
 node_modules
 
-pocketbase/*
+# PocketBase: ignore binary and local data (migrations are tracked)
+/pocketbase/pocketbase
+/pocketbase/pb_data
 
 # output
 out

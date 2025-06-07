@@ -31,6 +31,7 @@ Made for [Cerebras.ai](https://www.cerebras.ai/) + OpenRouter hackathon.
 Start the PocketBase server:
 
 ```bash
+# Download the PocketBase binary for your OS from https://pocketbase.io/docs and place it in ./pocketbase
 ./pocketbase/pocketbase serve
 ```
 
@@ -50,7 +51,7 @@ Open your browser to [http://localhost:3000](http://localhost:3000) to view the 
 
 ```
 .
-├── pocketbase/           # PocketBase binary, data, and migrations
+├── pocketbase/           # PocketBase migrations (schema). Binary & local data excluded.
 ├── src/
 │   ├── frontend/         # React application (App.tsx, pages, components)
 │   ├── components/ui/    # Shadcn UI component wrappers

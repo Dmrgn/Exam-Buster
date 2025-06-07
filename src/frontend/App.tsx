@@ -1,8 +1,7 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { } from "@/components/ui/card";
 import { Button } from "@/components/ui/button"
-import Upload from "@/components/upload"
+import UploadForm from "@/components/upload"
 import "../../styles/index.css";
 import { useState } from "react";
 import { pb } from "@/lib/db";
@@ -141,7 +140,7 @@ export function App() {
     return (
         <>
             {showAddAssignment ? <div onClick={() => setShowAddAssignment(false)} className="absolute left-0 top-0 w-full h-full z-[15] bg-background/50 backdrop-blur-md "></div> : <></>}
-            <Upload isShown={showAddAssignment}></Upload>
+            <UploadForm isShown={showAddAssignment} />
             <div className="container m-8 relative z-10 min-h-[90vh]">
                 <Card className="bg-card/50 backdrop-blur-sm border-muted min-h-[80%]">
                     <CardContent className="pt-4 mx-2 md:mx-8">

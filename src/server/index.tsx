@@ -1,8 +1,8 @@
 import { serve } from "bun";
 import index from "@/frontend/index.html";
 import { pb } from "../lib/db";
-import { client } from "@/lib/ai"
-import pdf from "pdf-parse"
+import { client } from "@/lib/ai";
+import { fetchPdfText } from "@/lib/pdf";
 
 const PREP_SYSTEM_PROMPT = `
 You are an expert math teacher. You will be given an assignment completed by a student (already graded by a teacher).
@@ -46,13 +46,8 @@ const server = serve({
                 const assignment = await pb.collection("assignments").getOne(item);
                 const fileName = assignment.file;
                 const fileUrl = `${process.env.POCKETBASE_URL}/api/files/assignments/${item}/${fileName}`;
-                const response = await fetch(fileUrl);
-                if (!response.ok) {
-                    throw new Error(`Failed to download PDF: ${response.statusText}`);
-                }
-                const buffer = await response.arrayBuffer();
-                const pdfBuffer = Buffer.from(buffer);
-                const pdfText = (await pdf(pdfBuffer)).text;
+                // Fetch and parse PDF text
+                const pdfText = await fetchPdfText(fileUrl);
 
                 const completion = await client.chat.completions.create({
                     model: "llama3.1-8b",
@@ -85,13 +80,8 @@ const server = serve({
                     const fileName = x.file;
                     const fileUrl = `${process.env.POCKETBASE_URL}/api/files/assignments/${x.id}/${fileName}`;
                     console.log(fileUrl);
-                    const response = await fetch(fileUrl);
-                    if (!response.ok) {
-                        throw new Error(`Failed to download PDF: ${response.statusText}`);
-                    }
-                    const buffer = await response.arrayBuffer();
-                    const pdfBuffer = Buffer.from(buffer);
-                    const pdfText = (await pdf(pdfBuffer)).text;
+                    // Fetch and parse PDF text
+                    const pdfText = await fetchPdfText(fileUrl);
                     const aiResponse = await client.chat.completions.create({
                         model: "qwen-3-32b",
                         messages: [

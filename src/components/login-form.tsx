@@ -77,16 +77,14 @@ export function LoginForm({
                                     <Label htmlFor="password">Password</Label>
                                 </div>
                                 <Input name="password" id="password" type="password" required />
-                                {(() => {
-                                    if (isRegister)
-                                        return (<>
-                                            <div className="flex items-center">
-                                                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                                            </div>
-                                            <Input name="confirmPassword" id="confirmPassword" type="password" required />
-                                        </>)
-                                    return <></>;
-                                })()}
+                                {isRegister && (
+                                    <>
+                                        <div className="flex items-center">
+                                            <Label htmlFor="confirmPassword">Confirm Password</Label>
+                                        </div>
+                                        <Input name="confirmPassword" id="confirmPassword" type="password" required />
+                                    </>
+                                )}
                             </div>
                             <div className="flex flex-col gap-3">
                                 <Button type="submit" className="w-full">
@@ -95,22 +93,21 @@ export function LoginForm({
                             </div>
                         </div>
                         <div className="mt-4 text-center text-sm text-red-600">{errorMessage}</div>
-                        {(() => {
-                            if (isRegister)
-                                return (<div className="mt-4 text-center text-sm">
-                                    Already have an account?{" "}
-                                    <a href="/login" className="underline underline-offset-4">
-                                        Log in
-                                    </a>
-                                </div>)
-                            return <div className="mt-4 text-center text-sm">
-                                Don't have an account?{" "}
+                        {isRegister ? (
+                            <div className="mt-4 text-center text-sm">
+                                Already have an account?{' '}
+                                <a href="/login" className="underline underline-offset-4">
+                                    Log in
+                                </a>
+                            </div>
+                        ) : (
+                            <div className="mt-4 text-center text-sm">
+                                Don't have an account?{' '}
                                 <a href="/register" className="underline underline-offset-4">
                                     Register
                                 </a>
                             </div>
-                        })()
-                        }
+                        )}
                     </form>
                 </CardContent>
             </Card>
