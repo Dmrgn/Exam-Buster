@@ -1,36 +1,8 @@
 import { serve } from "bun";
 import index from "@/frontend/index.html";
 import { pb } from "../lib/db";
-import { client } from "@/lib/ai";
+import { CHAT_SYSTEM_PROMPT, CHAT_TOOLS, client, PREP_SYSTEM_PROMPT } from "@/lib/ai";
 import { fetchPdfText } from "@/lib/pdf";
-
-const PREP_SYSTEM_PROMPT = `
-You are an expert math teacher. You will be given an assignment completed by a student (already graded by a teacher).
-Your job is to prepare feedback for what the student should work on and a list of 2-3 problems you create based on the what the student needs to work on.
-Return a JSON object in the following form:
-
-{
-    "title": string,
-    "feedback": string,
-    "problems": [
-        {
-            "question": string,
-            "solution": [
-                string
-            ]
-        }
-    ]
-}
-
-The title should be the name of the concept you decide the student needs to work on.
-The feedback should be 3-5 sentences.
-Each problem you create should contain a solution, which is an array where each element is a string containing a step along the path to solve the problem.
-Do not wrap your response in '\`\`\`json' or anything else, just return the JSON object.
-Ensure ALL \\ are properly escaped in your response! This is very important.
-Always repond with the given JSON object, even if the information you recieve is unexpected.
-If you would like to write a math statement, then use AsciiMath syntax surrounded by \` characters. For example: \`frac(10)(4x) approx 2^(12)\`.
-NEVER use LaTeX syntax or surround math statements with $ or $$ or $$$.
-`
 
 const server = serve({
     routes: {
@@ -61,8 +33,8 @@ const server = serve({
                 const modelResponse = (completion.choices[0]?.message?.content?.trim() || "").split("\n");
 
                 const title = modelResponse[0]
-                const summary = modelResponse[modelResponse.length-1];
-                return Response.json({title, summary});
+                const summary = modelResponse[modelResponse.length - 1];
+                return Response.json({ title, summary });
             }
         },
 
@@ -71,12 +43,12 @@ const server = serve({
                 const { searchParams } = new URL(req.url);
                 const userId: string = searchParams.get("id");
 
-                const {items: assignments} = await pb.collection("assignments")
+                const { items: assignments } = await pb.collection("assignments")
                     .getList(1, 50, {
                         filter: `userId = "${userId}"`,
                         sort: '-created',
                     });
-                const promises = assignments.slice(0,5).map(async (x)=>{
+                const promises = assignments.slice(0, 5).map(async (x) => {
                     const fileName = x.file;
                     const fileUrl = `${process.env.POCKETBASE_URL}/api/files/assignments/${x.id}/${fileName}`;
                     console.log(fileUrl);
@@ -98,8 +70,7 @@ const server = serve({
                 const responses = await Promise.all(promises);
 
                 pb.autoCancellation(false);
-                responses.forEach(async (x)=>{
-                    console.log(x, userId);
+                responses.forEach(async (x) => {
                     await pb.collection('prep').create({
                         ...x,
                         userId
@@ -110,6 +81,74 @@ const server = serve({
                 return Response.json({
                     status: "Success"
                 })
+            }
+        },
+
+        "/api/chat": {
+            POST: async (req) => {
+                const body = await req.json();
+                const { userId, chatId, content } = body;
+                if (!userId || !content) {
+                    return Response.json({ error: "userId and content required" }, { status: 400 });
+                }
+                let chat;
+                if (!chatId) {
+                    // start new chat
+                    const messages = [{ role: "user", content }];
+                    console.log(userId, messages);
+                    chat = await pb.collection("chats").create({ userId, messages });
+                } else {
+                    // continue existing chat
+                    chat = await pb.collection("chats").getOne(chatId);
+                    const msgs = Array.isArray(chat.messages) ? [...chat.messages] : [];
+                    msgs.push({ role: "user", content });
+                    await pb.collection("chats").update(chatId, { messages: msgs });
+
+                    const toolMsgs = [];
+                    let toolDepth = 0;
+                    let wasToolCalled = true;
+                    let finalMessage = "";
+                    while (toolDepth < 10 && wasToolCalled) {
+                        toolDepth++;
+                        wasToolCalled = false;
+                        // call AI
+                        // console.log("==============================");
+                        // console.log("Calling AI:");
+                        // console.log([...(msgs.slice(-2)), ...toolMsgs]);
+                        const aiResponse = await client.chat.completions.create({
+                            model: "llama-4-scout-17b-16e-instruct",
+                            messages: [{ role: "system", content: CHAT_SYSTEM_PROMPT }, ...msgs, ...toolMsgs],
+                            tools: CHAT_TOOLS
+                        });
+                        const choice = aiResponse.choices[0].message;
+                        // console.log(choice.tool_calls);
+                        // check if we called a tool
+                        if (choice.tool_calls) {
+                            const functionCall = choice.tool_calls[0].function;
+                            const functionArguments = JSON.parse(functionCall.arguments);
+                            switch (functionCall.name) {
+                                case "weather":
+                                    wasToolCalled = true;
+                                    toolMsgs.push(choice);
+                                    toolMsgs.push({
+                                        "role": "tool",
+                                        "content": "Rainy and 30 degrees celcius.",
+                                        "tool_call_id": choice.tool_calls[0].id
+                                    });
+                                    break;
+                                default:
+                                    console.error("Unknown tool used:", functionCall.name);
+                                    break;
+                            }
+                            continue;
+                        } 
+                        finalMessage = choice.content;
+                    }
+                    msgs.push({ role: "assistant", content: finalMessage });
+
+                    await pb.collection("chats").update(chatId, { messages: msgs });
+                }
+                return Response.json({ chatId: chat.id });
             }
         }
     },

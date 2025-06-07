@@ -11,87 +11,8 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { ClipboardListIcon } from "lucide-react";
 import { MathJaxContext, MathJax } from "better-react-mathjax";
 
-async function deleteAssignment(id: string) {
-    await pb.collection("assignments").delete(id);
-    window.location.reload();
-}
-
-async function deletePrep(id: string) {
-    await pb.collection("prep").delete(id);
-    window.location.reload();
-}
-
-function AssignmentCard({ assignment }: { assignment: RecordModel }) {
-    const [expanded, setExpanded] = useState(false);
-    const summary = assignment.summary as string;
-    const isLong = summary.length > 100;
-    return (
-        <Card className="bg-primary w-70">
-            <CardTitle className="pt-4 mx-2 md:mx-4 flex items-center">
-                <FileTextIcon className="mr-2" size={20} />
-                {assignment.title}
-            </CardTitle>
-            <CardContent className="pt-2 flex flex-col">
-                <MathJax>
-                    <p>{expanded || !isLong ? summary : summary.slice(0, 100) + '...'}</p>
-                    <div className="flex justify-between">
-                        {isLong && (
-                            <Button variant="link" size="sm" className="p-0 mt-1 text-white" onClick={() => setExpanded(!expanded)}>
-                                {expanded ? 'Show less' : 'Show more'}
-                            </Button>
-                        )}
-                        <Button onClick={() => deleteAssignment(assignment.id)} className="bg-white hover:bg-gray-300 cursor-pointer px-2" >❌</Button>
-                    </div>
-                </MathJax>
-            </CardContent>
-        </Card>
-    );
-}
-
-interface PrepRecord extends RecordModel {
-    title: string;
-    feedback: string;
-    problems: { title: string; question: string; solution: string[] }[];
-}
-
-function PrepCard({ prep }: { prep: PrepRecord }) {
-    return (
-        <Card className="w-full">
-            <CardHeader className="flex items-center gap-2">
-                <ClipboardListIcon size={20} />
-                <CardTitle className="text-xl">{prep.title}</CardTitle>
-            </CardHeader>
-            <CardDescription className="px-6 -mt-2"><MathJax>{prep.feedback}</MathJax></CardDescription>
-            <CardContent className="pt-2">
-                <Accordion type="single" collapsible className="w-full">
-                    {prep.problems.map((problem, pi) => (
-                        <AccordionItem
-                            value={`${prep.id}-prob-${pi}`} key={`${prep.id}-prob-${pi}`}
-                        >
-                            <AccordionTrigger className="text-lg"><MathJax>{problem.question.slice(0,50).split('`').length % 2 === 0 ? problem.question.slice(0, 50) + "`..." : problem.question.slice(0, 50)+"..."}</MathJax></AccordionTrigger>
-                            <AccordionContent>
-                                <p className="mb-2 text-sm"><MathJax>{problem.question}</MathJax></p>
-                                <Accordion type="multiple" className="w-full ml-4">
-                                    {problem.solution.map((step, si) => (
-                                        <AccordionItem
-                                            value={`${prep.id}-prob-${pi}-step-${si}`} key={`${prep.id}-prob-${pi}-step-${si}`}
-                                        >
-                                            <AccordionTrigger>Step {si + 1}</AccordionTrigger>
-                                            <AccordionContent>
-                                                <p className="text-sm"><MathJax>{step}</MathJax></p>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    ))}
-                                </Accordion>
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                </Accordion>
-                <Button onClick={() => deletePrep(prep.id)} variant="link" className="cursor-pointer px-0" >Delete Plan</Button>
-            </CardContent>
-        </Card>
-    );
-}
+import { AssignmentCard } from "./components/AssignmentCard";
+import { PrepCard } from "./components/PrepCard";
 
 export function App() {
 
@@ -190,7 +111,10 @@ export function App() {
                                         <PrepCard prep={prep} key={prep.id} />
                                     )) : 'Looks like you don\'t have any study plans yet!'}
                                 </div>
-                                <Button className="mt-4" onClick={() => createStudyPlan()}>Create Study Plan</Button>
+                                <div className="flex gap-4 mt-4">
+                                    <Button onClick={() => createStudyPlan()}>Create Study Plan</Button>
+                                    <Button onClick={() => window.location.href = "/chat"}>AI Chat</Button>
+                                </div>
                                 <hr className="mt-4"></hr>
                             </section>
                         </MathJaxContext>
