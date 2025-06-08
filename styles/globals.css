@@ -65,6 +65,7 @@
     --sidebar-accent-foreground: hsl(0, 0%, 84%);
     --sidebar-border: hsl(212, 25%, 22%);
     --sidebar-ring: hsl(204, 70%, 50%);
+    --sidebar: hsl(0 0% 98%);
 }
 
 .dark {
@@ -108,6 +109,7 @@
     --sidebar-accent-foreground: hsl(0, 0%, 100%);
     --sidebar-border: hsl(212, 30%, 12%);
     --sidebar-ring: hsl(204, 70%, 50%);
+    --sidebar: hsl(240 5.9% 10%);
 }
 
 @theme inline {

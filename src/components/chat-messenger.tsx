@@ -8,8 +8,15 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card } from "@/components/ui/card"
-import { Send, Paperclip, X } from "lucide-react"
+import { Send, Paperclip, X, MoreHorizontal } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -50,6 +57,24 @@ export default function ChatMessenger() {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const endRef = useRef<HTMLDivElement>(null);
+
+    // Actions: delete or reference a message
+    const handleDelete = async (idx: number) => {
+        setMessages(messages.filter((_, i) => i !== idx));
+        await pb.collection('chats').update(chatId, { messages: messages.filter((_, i) => i !== idx) });
+        await fetchMessages(chatId);
+    };
+    const handleReference = (idx: number) => {
+        if (!messages) return;
+        const msg = messages[idx];
+        // Quote each line
+        const quote = msg.content
+            .split("\n")
+            .map((line) => `> ${line}`)
+            .join("\n")
+            + "\n\n";
+        setInput((prev) => quote + prev);
+    };
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -98,7 +123,7 @@ export default function ChatMessenger() {
         console.log(files);
         let fileNames = [];
         if (files !== undefined && files.length > 0) {
-            fileNames = (await pb.collection('chats').update(chatId, {files: Array.from(files)})).files;
+            fileNames = (await pb.collection('chats').update(chatId, { files: Array.from(files) })).files;
         }
         // Build payload for /api/chat: always includes chatId
         const payload: any = { userId, chatId: localChatId, content: input, files: fileNames };
@@ -156,51 +181,72 @@ export default function ChatMessenger() {
                 </div>
             </div>
 
-            {/* Messages */}
+            {/* Messages (collapsible) */}
             <ScrollArea className="flex-1 p-4 h-[70vh] overflow-hidden" ref={scrollAreaRef}>
-                <div className="space-y-4">
+                <div className="flex flex-col space-y-4">
                     {messages?.length === 0 && (
                         <div className="text-center text-muted-foreground py-8">
                             <p>Start a conversation by sending a message or image/pdf!</p>
                         </div>
                     )}
 
-                    {messages?.map((message, index) => (
-                        <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                            <div
-                                className={`flex max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"
-                                    } items-start gap-2`}
-                            >
-                                <Avatar className="w-8 h-8">
-                                    <AvatarFallback>{message.role === "user" ? "U" : "AI"}</AvatarFallback>
-                                </Avatar>
-
+                    {messages?.map((message, index) => {
+                        // summary: first line or truncated
+                        const firstLine = message.content.split("\n")[0]
+                        const preview = firstLine.length > 50 ? firstLine.slice(0, 50) + "..." : firstLine
+                        return (
+                            <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} items-start space-x-2`}>
                                 <div
-                                    className={`prose prose-invert rounded-lg px-3 py-2 ${message.role === "user" ? "bg-primary text-primary-foreground ml-2" : "bg-muted mr-2"
-                                        }`}
+                                    className={`flex max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"} items-start gap-2`}
                                 >
-                                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                                        {message.content}
-                                    </ReactMarkdown>
+                                    <div className="flex flex-col">
+                                        <Avatar className="w-9 h-9">
+                                            <AvatarFallback>{message.role === "user" ? "U" : "AI"}</AvatarFallback>
+                                        </Avatar>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="p-0">
+                                                    <MoreHorizontal className="w-4 h-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align={message.role === "user" ? "end" : "start"}>
+                                                <DropdownMenuItem onSelect={() => handleReference(index)}>
+                                                    Reference
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => handleDelete(index)}>
+                                                    Delete
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
 
-                                    {/* Display attached images */}
-                                    {/* {message.attachements
-                                        ?.filter((attachment) => attachment.contentType?.startsWith("image/"))
-                                        .map((attachment, index) => (
-                                            <div key={`${message.id}-${index}`} className="mt-2">
-                                                <img
-                                                    src={attachment.url || "/placeholder.svg"}
-                                                    alt={attachment.name ?? `Image ${index + 1}`}
-                                                    width={200}
-                                                    height={200}
-                                                    className="rounded-md object-cover max-w-full h-auto"
-                                                />
-                                            </div>
-                                        ))} */}
+                                    <div
+                                        className={`rounded-lg px-3 py-2 ${message.role === "user" ? "bg-primary text-primary-foreground ml-2" : "bg-muted mr-2"}`}
+                                    >
+                                        {message.content.length >= 200 && <Accordion type="single" collapsible defaultValue={index >= messages.length - 2 ? `message-${index}` : ''} >
+                                            <AccordionItem key={index} value={`message-${index}`} >
+                                                <AccordionTrigger >
+                                                    {preview}
+                                                </AccordionTrigger>
+                                                <AccordionContent >
+                                                    <div className="prose prose-invert ">
+                                                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                            {message.content}
+                                                        </ReactMarkdown>
+                                                    </div>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        </Accordion>}
+                                        {message.content.length < 200 && <div className="prose prose-invert ">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                {message.content}
+                                            </ReactMarkdown>
+                                        </div>}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        )
+                    })}
 
                     <div ref={endRef}></div>
 
