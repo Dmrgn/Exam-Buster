@@ -11,10 +11,10 @@ import {
     SquareTerminal,
 } from "lucide-react"
 
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavUser } from "@/components/nav-user"
-import { TeamSwitcher } from "@/components/team-switcher"
+import { NavMain } from "@/components/app/nav-main"
+import { NavProjects } from "@/components/app/nav-projects"
+import { NavUser } from "@/components/app/nav-user"
+import { TeamSwitcher } from "@/components/app/team-switcher"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
 
 // This is sample data.

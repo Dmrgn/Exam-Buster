@@ -26,6 +26,14 @@ Made for [Cerebras.ai](https://www.cerebras.ai/) + OpenRouter hackathon.
 - [PocketBase](https://pocketbase.io/) (binary not included in this repo)
 
 
+### Environment Variables
+
+The following variables control the application. In development, you can omit `POCKETBASE_URL` to default to `http://127.0.0.1:8090`.
+- POCKETBASE_URL: URL of your PocketBase server (e.g. `http://127.0.0.1:8090`)
+- CEREBRAS_API_KEY: API key for Cerebras Cloud SDK
+- OPENROUTER_API_KEY: API key for OpenRouter/OpenAI
+- NODE_ENV: `development` or `production` (defaults to `development`)
+
 ### Running the PocketBase
 
 Start the PocketBase server:
@@ -34,6 +42,8 @@ Start the PocketBase server:
 # Download the PocketBase binary for your OS from https://pocketbase.io/docs and place it in ./pocketbase
 ./pocketbase/pocketbase serve
 ```
+
+The server will create its local data directory at `pocketbase/pb_data`, which is ignored by git. Do not commit this folder.
 
 The API will be available at `http://127.0.0.1:8090`.
 
@@ -51,11 +61,15 @@ Open your browser to [http://localhost:3000](http://localhost:3000) to view the 
 
 ```
 .
-├── pocketbase/           # PocketBase migrations (schema). Binary & local data excluded.
+├── pocketbase/           # PocketBase migrations (schema). The PocketBase binary and local data directory (pb_data) are git-ignored.
 ├── src/
-│   ├── frontend/         # React application (App.tsx, pages, components)
-│   ├── components/ui/    # Shadcn UI component wrappers
-│   ├── lib/              # PocketBase client configuration
+│   ├── client/           # React application (App.tsx, pages, components)
+│   ├── server/           # Bun server entrypoint and API routes
+│   ├── components/       # Shared component library
+│   │   ├── ui/           # Shadcn UI component wrappers
+│   │   └── app/          # App-specific components (cards, nav, forms)
+│   ├── lib/              # PocketBase client configuration & utilities
+│   ├── hooks/            # Custom React hooks
 │   └── styles/           # Tailwind CSS imports
 ├── styles/               # Global CSS
 ├── package.json          # Project dependencies and scripts

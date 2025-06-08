@@ -1,14 +1,9 @@
-// Client-side configuration (exposed to the browser)
+// Client-side configuration (exposed to the browser).
+// At build time, build.ts injects POCKETBASE_URL into process.env.
 
-/**
- * Base URL for the PocketBase API.
- * Must be set as BUN_PUBLIC_POCKETBASE_URL in the environment.
- */
-export const pocketbaseUrl: string = (() => {
-  // Using import.meta.env ensures Bun inlines variables prefixed with BUN_PUBLIC_
-  const url = import.meta.env.BUN_PUBLIC_POCKETBASE_URL;
-  if (!url) {
-    throw new Error('Missing environment variable: BUN_PUBLIC_POCKETBASE_URL');
-  }
-  return url;
-})();
+// Retrieve the injected PocketBase URL
+const _pbUrl = (import.meta?.env?.POCKETBASE_URL ? process.env.POCKETBASE_URL : 'http://127.0.0.1:8090');
+if (!_pbUrl) {
+  throw new Error('Missing environment variable: POCKETBASE_URL');
+}
+export const pocketbaseUrl: string = _pbUrl;

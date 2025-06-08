@@ -1,4 +1,8 @@
 import PocketBase from 'pocketbase';
 
 // export const pb = new PocketBase('https://pocketbase.danielmorgan.xyz');
-export const pb = new PocketBase('http://127.0.0.1:8090');
+import { pocketbaseUrl } from './config.client';
+
+// PocketBase client, configured via environment
+// Use client-side config for browser and default for server
+export const pb = new PocketBase(pocketbaseUrl);

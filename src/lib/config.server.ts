@@ -16,16 +16,9 @@ if (!_env.success) {
 }
 const env = _env.data;
 
-/**
- * Centralized configuration values parsed from environment variables.
- */
 export const config = {
-    // Base URL for the PocketBase API
     pocketbaseUrl: env.POCKETBASE_URL,
-    // API key for Cerebras Cloud SDK
     cerebrasApiKey: env.CEREBRAS_API_KEY,
-    // API key for OpenRouter / OpenAI
     openRouterApiKey: env.OPENROUTER_API_KEY,
-    // Current environment
     nodeEnv: env.NODE_ENV,
 };

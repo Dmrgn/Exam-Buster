@@ -1,5 +1,5 @@
-import ChatMessenger from '@/components/chat-messenger';
-import { AppSidebar } from "@/components/app-sidebar";
+import ChatMessenger from '@/components/app/chat-messenger';
+import { AppSidebar } from "@/components/app/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";

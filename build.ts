@@ -135,8 +135,8 @@ if (existsSync(outdir)) {
 const start = performance.now();
 
 // Scan for all HTML files in the project
-const entrypoints = [...new Bun.Glob("**.html").scanSync("src/frontend")]
-    .map(a => path.resolve("src/frontend", a))
+const entrypoints = [...new Bun.Glob("**.html").scanSync("src/client")]
+    .map(a => path.resolve("src/client", a))
     .filter(dir => !dir.includes("node_modules"));
 console.log(`📄 Found ${entrypoints.length} HTML ${entrypoints.length === 1 ? "file" : "files"} to process\n`);
 
@@ -148,8 +148,12 @@ const result = await build({
     minify: true,
     target: "browser",
     sourcemap: "linked",
+    // Inject environment variables (so client-side code can reference process.env.POCKETBASE_URL)
     define: {
         "process.env.NODE_ENV": JSON.stringify("production"),
+        "process.env.POCKETBASE_URL": JSON.stringify(
+            process.env.POCKETBASE_URL
+        ),
     },
     ...cliConfig, // Merge in any CLI-provided options
 });
