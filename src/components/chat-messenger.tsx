@@ -53,8 +53,7 @@ export default function ChatMessenger() {
 
     // Scroll to bottom on new messages
     useEffect(() => {
-        endRef.current?.scrollIntoView({ behavior: 'smooth' });
-        console.log(inputRef.current);
+        endRef.current?.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
         inputRef.current.focus();
     }, [messages]);
 
@@ -77,7 +76,6 @@ export default function ChatMessenger() {
     // Fetch messages for existing chat
     async function fetchMessages(id: string) {
         const chat = await pb.collection("chats").getOne(id);
-        console.log(chat);
         setMessages(chat.messages);
     }
 
@@ -87,43 +85,64 @@ export default function ChatMessenger() {
         setChatId(chats.items.length === 0 ? null : chats.items[0].id);
     }
 
-    // Send a user message (and get assistant reply)
-    async function sendMessage() {
-        const payload: any = { userId, content: input };
-        if (chatId) payload.chatId = chatId;
+    // Ensure a chat exists client-side, then send a user message to the server
+    async function sendMessage(): Promise<string> {
+        let localChatId = chatId;
+        // Create a new chat record in PocketBase if none exists
+        if (!localChatId) {
+            const newChat = await pb.collection('chats').create({ userId, messages: [] });
+            localChatId = newChat.id;
+            setChatId(localChatId);
+        }
+        // check for uploaded files
+        console.log(files);
+        let fileNames = [];
+        if (files !== undefined && files.length > 0) {
+            fileNames = (await pb.collection('chats').update(chatId, {files: Array.from(files)})).files;
+        }
+        // Build payload for /api/chat: always includes chatId
+        const payload: any = { userId, chatId: localChatId, content: input, files: fileNames };
+        // Send to server for AI response and persistence
         const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
-        const data = await res.json();
+        await res.json();
+        // Return the chatId used
+        return localChatId;
     }
 
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
-            setFiles(event.target.files)
+            console.log(event.target.files);
+            setFiles(event.target.files);
         }
     }
 
     const removeFiles = () => {
-        setFiles(undefined)
+        setFiles(undefined);
         if (fileInputRef.current) {
-            fileInputRef.current.value = ""
+            fileInputRef.current.value = "";
         }
     }
 
     const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        // Prevent empty sends
         if (!input.trim()) return;
         setLoading(true);
-        await sendMessage();
-        await fetchMessages(chatId);
+        // Create chat if needed and send message
+        const usedChatId = await sendMessage();
+        // Refresh messages from server
+        await fetchMessages(usedChatId);
         setLoading(false);
-        setInput("");
+        setInput('');
         removeFiles();
     }
 
     return (
-        <Card className="flex flex-col h-[90vh] max-w-[1200px] w-[90vw] mx-2">
+        <Card className="flex flex-col max-w-[1200px] h-[90vh] w-[90vw] mx-2">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center space-x-3">
@@ -138,7 +157,7 @@ export default function ChatMessenger() {
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4 overflow-y-auto" ref={scrollAreaRef}>
+            <ScrollArea className="flex-1 p-4 h-[70vh] overflow-hidden" ref={scrollAreaRef}>
                 <div className="space-y-4">
                     {messages?.length === 0 && (
                         <div className="text-center text-muted-foreground py-8">
@@ -183,6 +202,8 @@ export default function ChatMessenger() {
                         </div>
                     ))}
 
+                    <div ref={endRef}></div>
+
                     {loading && (
                         <div className="flex justify-start">
                             <div className="flex items-start space-x-2">
@@ -206,7 +227,6 @@ export default function ChatMessenger() {
                         </div>
                     )}
                 </div>
-                <div ref={endRef}></div>
             </ScrollArea>
 
             {/* File Preview */}

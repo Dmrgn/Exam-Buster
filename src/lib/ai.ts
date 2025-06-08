@@ -1,7 +1,13 @@
 import Cerebras from '@cerebras/cerebras_cloud_sdk';
+import OpenAI from 'openai';
 
-export const client = new Cerebras({
+export const cerebras = new Cerebras({
     apiKey: process.env['CEREBRAS_API_KEY'],
+});
+
+export const openai = new OpenAI({
+    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: process.env['OPENROUTER_API_KEY']
 });
 
 export const PREP_SYSTEM_PROMPT = `

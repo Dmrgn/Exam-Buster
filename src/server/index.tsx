@@ -1,7 +1,7 @@
 import { serve } from "bun";
 import index from "@/frontend/index.html";
 import { pb } from "../lib/db";
-import { CHAT_SYSTEM_PROMPT, CHAT_TOOLS, client, PREP_SYSTEM_PROMPT } from "@/lib/ai";
+import { CHAT_SYSTEM_PROMPT, CHAT_TOOLS, cerebras, PREP_SYSTEM_PROMPT, openai } from "@/lib/ai";
 import { fetchPdfText } from "@/lib/pdf";
 
 const server = serve({
@@ -21,7 +21,7 @@ const server = serve({
                 // Fetch and parse PDF text
                 const pdfText = await fetchPdfText(fileUrl);
 
-                const completion = await client.chat.completions.create({
+                const completion = await cerebras.chat.completions.create({
                     model: "llama3.1-8b",
                     messages: [
                         { role: "system", content: "You are an assignment name generator. Given the text from an assignment, respond with a description name for it and a short summary of it and nothing else. Respond with the name of the assignment on one line, followed by the summary of it on the next." },
@@ -54,7 +54,7 @@ const server = serve({
                     console.log(fileUrl);
                     // Fetch and parse PDF text
                     const pdfText = await fetchPdfText(fileUrl);
-                    const aiResponse = await client.chat.completions.create({
+                    const aiResponse = await cerebras.chat.completions.create({
                         model: "qwen-3-32b",
                         messages: [
                             { role: "system", content: PREP_SYSTEM_PROMPT },
@@ -87,68 +87,106 @@ const server = serve({
         "/api/chat": {
             POST: async (req) => {
                 const body = await req.json();
-                const { userId, chatId, content } = body;
-                if (!userId || !content) {
-                    return Response.json({ error: "userId and content required" }, { status: 400 });
+                const { userId, chatId, content, files } = body;
+                // chatId must be provided by the client
+                if (!userId || !content || !chatId) {
+                    return Response.json(
+                        { error: "userId, chatId and content are required" },
+                        { status: 400 }
+                    );
                 }
-                let chat;
-                if (!chatId) {
-                    // start new chat
-                    const messages = [{ role: "user", content }];
-                    console.log(userId, messages);
-                    chat = await pb.collection("chats").create({ userId, messages });
-                } else {
-                    // continue existing chat
-                    chat = await pb.collection("chats").getOne(chatId);
-                    const msgs = Array.isArray(chat.messages) ? [...chat.messages] : [];
-                    msgs.push({ role: "user", content });
-                    await pb.collection("chats").update(chatId, { messages: msgs });
-
-                    const toolMsgs = [];
-                    let toolDepth = 0;
-                    let wasToolCalled = true;
-                    let finalMessage = "";
-                    while (toolDepth < 10 && wasToolCalled) {
-                        toolDepth++;
-                        wasToolCalled = false;
-                        // call AI
-                        // console.log("==============================");
-                        // console.log("Calling AI:");
-                        // console.log([...(msgs.slice(-2)), ...toolMsgs]);
-                        const aiResponse = await client.chat.completions.create({
-                            model: "llama-4-scout-17b-16e-instruct",
-                            messages: [{ role: "system", content: CHAT_SYSTEM_PROMPT }, ...msgs, ...toolMsgs],
-                            tools: CHAT_TOOLS
+                // find file attachments
+                const fileMsgs = [];
+                if (files && files.length > 0) {
+                    const fileName = files[0] as string;
+                    const fileUrl = `${process.env.POCKETBASE_URL}/api/files/chats/${chatId}/${fileName}`;
+                    const fileType = fileName.split(".").reverse()[0].toLowerCase();
+                    if (["png", "jpeg", "jpg", "webp"].includes(fileType)) {
+                        const imageData = Buffer.from(await (await fetch(fileUrl)).arrayBuffer()).toString('base64');
+                        const imageDataString = `data:image/${fileType};base64,${imageData}`;
+                        const aiResponse = await openai.chat.completions.create({
+                            model: 'google/gemini-2.0-flash-exp:free',
+                            messages: [
+                                {
+                                    role: 'user',
+                                    content: [
+                                        {
+                                            type: 'text',
+                                            text: "What's in this image? If it contains text then extract the text from the image.",
+                                        },
+                                        {
+                                            type: 'image_url',
+                                            image_url: {
+                                                url: imageDataString,
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
                         });
-                        const choice = aiResponse.choices[0].message;
-                        // console.log(choice.tool_calls);
-                        // check if we called a tool
-                        if (choice.tool_calls) {
-                            const functionCall = choice.tool_calls[0].function;
-                            const functionArguments = JSON.parse(functionCall.arguments);
-                            switch (functionCall.name) {
-                                case "weather":
-                                    wasToolCalled = true;
-                                    toolMsgs.push(choice);
-                                    toolMsgs.push({
-                                        "role": "tool",
-                                        "content": "Rainy and 30 degrees celcius.",
-                                        "tool_call_id": choice.tool_calls[0].id
-                                    });
-                                    break;
-                                default:
-                                    console.error("Unknown tool used:", functionCall.name);
-                                    break;
-                            }
-                            continue;
-                        } 
-                        finalMessage = choice.content;
+                        fileMsgs.push({
+                            role: "user",
+                            content: `File type: ${fileType} File data: ${aiResponse.choices[0].message.content.slice(0, 5_000)}`
+                        });
+                    } else if (fileType === "pdf") {
+                        const pdfText = await fetchPdfText(fileUrl);
+                        fileMsgs.push({
+                            role: "user",
+                            content: `File type: ${fileType} File data: ${pdfText.slice(0, 5_000)}`
+                        });
+                    } else {
+                        fileMsgs.push({
+                            role: "user",
+                            content: `File type: ${fileType} File data: Unsupported file type. Please provide the file in png, jpeg, jpg, webp or pdf format.`
+                        });
                     }
-                    msgs.push({ role: "assistant", content: finalMessage });
-
-                    await pb.collection("chats").update(chatId, { messages: msgs });
                 }
-                return Response.json({ chatId: chat.id });
+                // Fetch existing chat
+                const chat = await pb.collection("chats").getOne(chatId);
+                // Append the user message
+                const msgs = Array.isArray(chat.messages) ? [...chat.messages] : [];
+                msgs.push({ role: "user", content });
+                await pb.collection("chats").update(chatId, { messages: msgs });
+                // Tool-driven AI response loop
+                const toolMsgs = [];
+                let toolDepth = 0;
+                let wasToolCalled = true;
+                let finalMessage = "";
+                while (toolDepth < 10 && wasToolCalled) {
+                    toolDepth++;
+                    wasToolCalled = false;
+                    const aiResponse = await cerebras.chat.completions.create({
+                        model: "llama-4-scout-17b-16e-instruct",
+                        messages: [{ role: "system", content: CHAT_SYSTEM_PROMPT }, ...msgs, ...toolMsgs, ...fileMsgs],
+                        tools: CHAT_TOOLS
+                    });
+                    const choice = aiResponse.choices[0].message;
+                    // Check for a tool call
+                    if (choice.tool_calls) {
+                        const functionCall = choice.tool_calls[0].function;
+                        const functionArguments = JSON.parse(functionCall.arguments);
+                        switch (functionCall.name) {
+                            case "weather":
+                                wasToolCalled = true;
+                                toolMsgs.push(choice);
+                                toolMsgs.push({
+                                    role: "tool",
+                                    content: "Rainy and 30 degrees celcius.",
+                                    tool_call_id: choice.tool_calls[0].id
+                                });
+                                break;
+                            default:
+                                console.error("Unknown tool used:", functionCall.name);
+                                break;
+                        }
+                        continue;
+                    }
+                    finalMessage = choice.content;
+                }
+                // Append the assistant message
+                msgs.push({ role: "assistant", content: finalMessage });
+                await pb.collection("chats").update(chatId, { messages: msgs });
+                return Response.json({ chatId });
             }
         }
     },

@@ -30,6 +30,7 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "lucide-react": "^0.475.0",
+        "openai": "^5.1.1",
         "pdf-parse": "github.com:Dmrgn/pdf-parse.git",
         "pocketbase": "^0.26.0",
         "react": "^19",
