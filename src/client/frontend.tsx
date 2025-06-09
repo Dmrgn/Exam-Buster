@@ -1,10 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import App from "./App";
 import { Login } from "./Login";
 import { Register } from "./Register";
 import { Error404 } from "./Error404";
 import ChatScreen from "./Chat";
+import Prep from "./Prep";
 import "../../styles/globals.css";
 
 const elem = document.getElementById("root")!;
@@ -18,6 +19,8 @@ function Router() {
             return <Register />;
         case "/chat":
             return <ChatScreen />;
+        case "/prep":
+            return <Prep />;
         case "/":
             return <App />;
         default:
@@ -26,7 +29,9 @@ function Router() {
 }
 
 createRoot(elem).render(
-    <StrictMode>
-        <Router />
-    </StrictMode>
+    <div className="flex flex-col items-center justify-center w-[98vw]">
+        <StrictMode>
+            <Router />
+        </StrictMode>
+    </div>
 );

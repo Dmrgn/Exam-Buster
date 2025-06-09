@@ -1,5 +1,7 @@
 import Cerebras from '@cerebras/cerebras_cloud_sdk';
 import OpenAI from 'openai';
+import Replicate from "replicate";
+export const replicate = new Replicate();
 import { config } from './config.server';
 
 export const cerebras = new Cerebras({
@@ -10,6 +12,8 @@ export const openai = new OpenAI({
     baseURL: 'https://openrouter.ai/api/v1',
     apiKey: config.openRouterApiKey
 });
+
+export const IMAGE_ASPECT_RATIOS = ["1:1", "16:9", "21:9", "3:2", "2:3", "4:5", "5:4", "3:4", "4:3", "9:16", "9:21"];
 
 export const PREP_SYSTEM_PROMPT = `
 You are an expert math teacher. You will be given an assignment completed by a student (already graded by a teacher).
@@ -39,27 +43,6 @@ If you would like to write a math statement, then use AsciiMath syntax surrounde
 NEVER use LaTeX syntax or surround math statements with $ or $$ or $$$.
 `
 
-export const CHAT_TOOLS = [
-    {
-        type: "function",
-        function: {
-            name: "weather",
-            strict: true,
-            description: "Returns the weather of the specified city.",
-            parameters: {
-                type: "object",
-                properties: {
-                    city: {
-                        type: "string",
-                        description: "The name of the city to get the current weather of."
-                    }
-                },
-                required: ["city"]
-            }
-        }
-    }
-]
-
 export const CHAT_SYSTEM_PROMPT = `
 You are ChatGPT, a large language model trained by OpenAI.
 Knowledge cutoff: 2024-06
@@ -67,10 +50,85 @@ Current date: 2025-06-07
 
 # Tools
 
-## weather
+## image_gen
 
-This tool gets the weather of the city that you pass to it.
+The "image_gen" tool enables image generation from descriptions. Use it when:
+- The user requests an image based on a scene description, such as a diagram, portrait, comic, meme, or any other visual.
+Guidelines:
+- Confirm with the user that they would like an image generated before running the tool.
+- After each image generation, do not mention anything related to download. Do not summarize the image. Do not ask followup question. Do not say ANYTHING after you generate an image.
+
+## search & openUrl
+
+Use the "search" and "openUrl" tool to access up-to-date information from the web or when responding to the user requires information about their location. Some examples of when to use the "search" & "openUrl" tool include:
+
+- Local Information: Use the "search" & "openUrl" tool to respond to questions that require information about the user's location, such as the weather, local businesses, or events.
+- Freshness: If up-to-date information on a topic could potentially change or enhance the answer, call the "search" & "openUrl" tool any time you would otherwise refuse to answer a question because your knowledge might be out of date.
+- Niche Information: If the answer would benefit from detailed information not widely known or understood (which might be found on the internet), use web sources directly rather than relying on the distilled knowledge from pretraining.
+- Accuracy: If the cost of a small mistake or outdated information is high (e.g., using an outdated version of a software library or not knowing the date of the next game for a sports team), then use the "search" & "openUrl" tool.
 `
+
+export const CHAT_TOOLS = [
+    {
+        type: "function",
+        function: {
+            name: "image_gen",
+            strict: true,
+            description: "Returns the url of an image generated using the specified aspect ratio and prompt. The image can then be displayed to the user using Markdown syntax.",
+            parameters: {
+                type: "object",
+                properties: {
+                    prompt: {
+                        type: "string",
+                        description: "A descriptive prompt for the image based on the user's requests."
+                    },
+                    aspectRatio: {
+                        type: "string",
+                        description: `The aspect ratio of the generated image. Must be one of: ${IMAGE_ASPECT_RATIOS.join(", ")}.`
+                    }
+                },
+                required: ["prompt", "aspectRatio"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "search",
+            strict: true,
+            description: "Returns a list of web search results for the specified query. Can be used to gather urls to open with the openUrl tool.",
+            parameters: {
+                type: "object",
+                properties: {
+                    query: {
+                        type: "string",
+                        description: "A web search query based on the user's requests."
+                    },
+                },
+                required: ["query"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "openUrl",
+            strict: true,
+            description: "Return a Markdown formatted version of the webpage at the specified url. ONLY use this after calling the search tool.",
+            parameters: {
+                type: "object",
+                properties: {
+                    url: {
+                        type: "string",
+                        description: "The full url of the website that you'd like to get the content of."
+                    },
+                },
+                required: ["url"]
+            }
+        }
+    }
+]
+
 // export const CHAT_SYSTEM_PROMPT = `
 // You are ChatGPT, a large language model trained by OpenAI.
 // You are chatting with the user via the ChatGPT iOS app. This means most of the time your lines should be a sentence or two, unless the user's request requires reasoning or long-form outputs. Never use emojis, unless explicitly asked to by the user.
@@ -112,12 +170,9 @@ This tool gets the weather of the city that you pass to it.
 
 // ## image_gen
 
-// The "image_gen" tool enables image generation from descriptions and editing of existing images based on specific instructions. Use it when:
+// The "image_gen" tool enables image generation from descriptions. Use it when:
 // - The user requests an image based on a scene description, such as a diagram, portrait, comic, meme, or any other visual.
-// - The user wants to modify an attached image with specific changes, including adding or removing elements, altering colors, improving quality/resolution, or transforming the style (e.g., cartoon, oil painting).
 // Guidelines:
-// - Directly generate the image without reconfirmation or clarification, UNLESS the user asks for an image that will include a rendition of them. If the user requests an image that will include them in it, even if they ask you to generate based on what you already know, RESPOND SIMPLY with a suggestion that they provide an image of themselves so you can generate a more accurate response. If they've already shared an image of themselves IN THE CURRENT CONVERSATION, then you may generate the image. You MUST ask AT LEAST ONCE for the user to upload an image of themselves, if you are generating an image of them. This is VERY IMPORTANT -- do it with a natural clarifying question.
+// - Confirm with the user that they would like an image generated before running the tool.
 // - After each image generation, do not mention anything related to download. Do not summarize the image. Do not ask followup question. Do not say ANYTHING after you generate an image.
-// - Always use this tool for image editing unless the user explicitly requests otherwise. Do not use the "python" tool for image editing unless specifically instructed.
-// - If the user's request violates our content policy, any suggestions you make must be sufficiently different from the original violation. Clearly distinguish your suggestion from the original intent in the response.
 // `;

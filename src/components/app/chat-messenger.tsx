@@ -83,6 +83,8 @@ export default function ChatMessenger() {
     }, [messages]);
 
     if (chatId === null) {
+        const queryParam = new URLSearchParams(window.location.search).get("chatId");
+        if (queryParam !== null) setChatId(queryParam);
         if (chats === null && !chatsLoading) {
             setChatsLoading(true);
             fetchChats().then(() => {
@@ -105,7 +107,10 @@ export default function ChatMessenger() {
     }
 
     async function fetchChats() {
-        const chats = await pb.collection("chats").getList(1, 50);
+        pb.autoCancellation(false);
+        console.log(chatId);
+        const chats = await pb.collection("chats").getList(1, 20, { filter: `userId = "${userId}"`, sort: '-created' });
+        pb.autoCancellation(true);
         setChats(chats.items as any as Chat[]);
         setChatId(chats.items.length === 0 ? null : chats.items[0].id);
     }
@@ -167,7 +172,7 @@ export default function ChatMessenger() {
     }
 
     return (
-        <Card className="flex flex-col max-w-[1200px] h-[90vh] w-[90vw] mx-2">
+        <Card className="bg-card/50 backdrop-blur-sm border-muted min-h-[80%] max-w-[1200px] w-[97%]">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center space-x-3">

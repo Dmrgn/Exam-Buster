@@ -5,9 +5,9 @@ import { pb } from "@/lib/db";
 import type { RecordModel } from "pocketbase";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { ClipboardListIcon } from "lucide-react";
-import { MathJaxContext, MathJax } from "better-react-mathjax";
+import { MathJax } from "better-react-mathjax";
 
-interface PrepRecord extends RecordModel {
+export interface PrepRecord extends RecordModel {
     title: string;
     feedback: string;
     problems: { title: string; question: string; solution: string[] }[];
@@ -21,7 +21,7 @@ async function deletePrep(id: string) {
 export function PrepCard({ prep }: { prep: PrepRecord }) {
     return (
         <Card className="w-full">
-            <CardHeader className="flex items-center gap-2">
+            <CardHeader className="flex flex-row items-center gap-2">
                 <ClipboardListIcon size={20} />
                 <CardTitle className="text-xl">{prep.title}</CardTitle>
             </CardHeader>

@@ -17,7 +17,7 @@ export function AssignmentCard({ assignment }: { assignment: RecordModel }) {
     const summary = assignment.summary as string;
     const isLong = summary.length > 100;
     return (
-        <Card className="bg-primary w-70">
+        <Card className="bg-primary w-full">
             <CardTitle className="pt-4 mx-2 md:mx-4 flex items-center">
                 <FileTextIcon className="mr-2" size={20} />
                 {assignment.title}

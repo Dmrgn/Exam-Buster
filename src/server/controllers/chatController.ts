@@ -1,16 +1,19 @@
-import type { Request } from 'bun';
+import type { BunRequest } from 'bun';
+import type { FileOutput } from 'replicate';
+import type { BraveRoot } from '@/lib/braveTypes';
 import { z } from 'zod';
 import { pb } from '@/lib/db';
 import { fetchPdfText } from '@/lib/pdf';
-import { cerebras, openai, CHAT_SYSTEM_PROMPT, CHAT_TOOLS } from '@/lib/ai';
+import { cerebras, openai, CHAT_SYSTEM_PROMPT, CHAT_TOOLS, replicate, IMAGE_ASPECT_RATIOS } from '@/lib/ai';
 import { config } from '../../lib/config.server';
+import { NodeHtmlMarkdown } from 'node-html-markdown'
 
 /**
  * POST /api/chat
  * Body: { userId, chatId, content, files? }
  * Handles a user message, optional file attachment, and returns chatId.
  */
-export async function postChat(req: Request): Promise<Response> {
+export async function postChat(req: BunRequest): Promise<Response> {
     try {
         // Validate body
         const schema = z.object({
@@ -33,9 +36,14 @@ export async function postChat(req: Request): Promise<Response> {
                 const dataUri = `data:image/${fileType};base64,${imageData}`;
                 const aiRes = await openai.chat.completions.create({
                     model: 'google/gemini-2.0-flash-exp:free',
+                    models: ["opengvlab/internvl3-14b:free", "meta-llama/llama-4-maverick:free", "qwen/qwen2.5-vl-32b-instruct:free"],
                     messages: [
-                        { role: 'user', content: "What's in this image? If it contains text then extract the text from the image." },
-                        { type: 'image_url', image_url: { url: dataUri } } as any,
+                        {
+                            role: 'user', content: [
+                                { type: 'text', text: "What's in this image? If it contains text then extract the text from the image." },
+                                { type: 'image_url', image_url: { url: dataUri } }
+                            ],
+                        },
                     ],
                 });
                 fileMsgs.push({ role: 'user', content: `File type: ${fileType} File data: ${aiRes.choices[0].message.content.slice(0, 5000)}` });
@@ -70,13 +78,40 @@ export async function postChat(req: Request): Promise<Response> {
             if (choice.tool_calls) {
                 const fnCall = choice.tool_calls[0];
                 const fn = fnCall.function;
-                const args = JSON.parse(fnCall.arguments);
+                const args = JSON.parse(fn.arguments);
                 wasToolCalled = true;
                 toolMsgs.push(choice);
-                // Example tool: weather
-                if (fn.name === 'weather') {
-                    // TODO: call actual weather API
-                    toolMsgs.push({ role: 'tool', content: 'Rainy and 30°C', tool_call_id: fnCall.id });
+                if (fn.name === 'image_gen') {
+                    const input = {
+                        prompt: args.prompt,
+                        aspect_ratio: (IMAGE_ASPECT_RATIOS.includes(args.aspectRatio) ? args.aspect_ratio : "1:1"),
+                    };
+                    const output: FileOutput[] = await replicate.run("black-forest-labs/flux-schnell", { input });
+                    const imageBlob = await output[0].blob();
+                    const imageFile = new File([imageBlob], 'image.webp', { type: imageBlob.type });
+                    const fileRecord = await pb.collection("chats").update(chatId, { "files+": imageFile });
+                    const fileUrl = `${config.pocketbaseUrl}/api/files/chats/${chatId}/${fileRecord.files[fileRecord.files.length - 1]}`;
+                    toolMsgs.push({ role: 'tool', content: `Here is the generated image. This message is not visible to the user, so please repeat the image Markdown: ![${args.prompt}](${fileUrl})`, tool_call_id: fnCall.id });
+                } else if (fn.name === 'search') {
+                    const results: BraveRoot = await (await fetch(`https://api.search.brave.com/res/v1/web/search?q=${args.query}`, {
+                        method: 'get',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Accept-Encoding': 'gzip',
+                            'x-subscription-token': process.env["BRAVE_API_KEY"],
+                        },
+                    })).json();
+                    const toolResponse = results.web.results
+                        .map(x => `\n## ${x.title}\nUrl: ${x.url}\nDescription: ${x.description}\nAge: ${x.age ?? 'unknown'}`)
+                        .slice(0, 8)
+                        .join('\n');
+                    console.log(toolResponse);
+                    toolMsgs.push({ role: 'tool', content: toolResponse, tool_call_id: fnCall.id });
+                } else if (fn.name === 'openUrl') {
+                    const textContent = await (await fetch(args.url)).text();
+                    const markdown = NodeHtmlMarkdown.translate(textContent);
+                    console.log(markdown.slice(0, 3000));
+                    toolMsgs.push({ role: 'tool', content: markdown.slice(0, 3000), tool_call_id: fnCall.id });
                 } else {
                     console.error('Unknown tool:', fn.name);
                 }

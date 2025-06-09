@@ -28,7 +28,9 @@ export default function ChatScreen() {
                         </Breadcrumb>
                     </div>
                 </header>
-                <ChatMessenger />
+                <div className="flex flex-col items-center w-full my-auto z-10">
+                    <ChatMessenger />
+                </div>
             </SidebarInset>
         </SidebarProvider>
     );

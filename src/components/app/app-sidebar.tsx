@@ -1,166 +1,83 @@
-import type * as React from "react"
+"use client"
+import React, { useEffect, useState } from 'react'
+import { Home, ClipboardList, Bot, MessageSquare } from 'lucide-react'
+import { pb } from '@/lib/db'
+import { NavMain } from '@/components/app/nav-main'
+import { NavUser } from '@/components/app/nav-user'
+import { TeamSwitcher } from '@/components/app/team-switcher'
 import {
-    BookOpen,
-    Bot,
-    Command,
-    Frame,
-    GalleryVerticalEnd,
-    Map,
-    PieChart,
-    Settings2,
-    SquareTerminal,
-} from "lucide-react"
+    Sidebar,
+    SidebarHeader,
+    SidebarContent,
+    SidebarFooter,
+    SidebarRail,
+    SidebarSeparator,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarGroupContent,
+    SidebarMenuItem,
+    SidebarMenuButton,
+} from '@/components/ui/sidebar'
 
-import { NavMain } from "@/components/app/nav-main"
-import { NavProjects } from "@/components/app/nav-projects"
-import { NavUser } from "@/components/app/nav-user"
-import { TeamSwitcher } from "@/components/app/team-switcher"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
+export function AppSidebar() {
+    const user = pb.authStore.record
+    const [chats, setChats] = useState<Array<{ id: string }>>([])
 
-// This is sample data.
-const data = {
-    user: {
-        name: "shadcn",
-        email: "m@example.com",
-        avatar: "/avatars/shadcn.jpg",
-    },
-    teams: [
-        {
-            name: "Acme Inc",
-            logo: GalleryVerticalEnd,
-            plan: "Enterprise",
-        },
-        {
-            name: "Acme Corp.",
-            logo: Command,
-            plan: "Startup",
-        },
-        {
-            name: "Evil Corp.",
-            logo: Frame,
-            plan: "Free",
-        },
-    ],
-    navMain: [
-        {
-            title: "Playground",
-            url: "#",
-            icon: SquareTerminal,
-            isActive: true,
-            items: [
-                {
-                    title: "History",
-                    url: "#",
-                },
-                {
-                    title: "Starred",
-                    url: "#",
-                },
-                {
-                    title: "Settings",
-                    url: "#",
-                },
-            ],
-        },
-        {
-            title: "Models",
-            url: "#",
-            icon: Bot,
-            items: [
-                {
-                    title: "Genesis",
-                    url: "#",
-                },
-                {
-                    title: "Explorer",
-                    url: "#",
-                },
-                {
-                    title: "Quantum",
-                    url: "#",
-                },
-            ],
-        },
-        {
-            title: "Documentation",
-            url: "#",
-            icon: BookOpen,
-            items: [
-                {
-                    title: "Introduction",
-                    url: "#",
-                },
-                {
-                    title: "Get Started",
-                    url: "#",
-                },
-                {
-                    title: "Tutorials",
-                    url: "#",
-                },
-                {
-                    title: "Changelog",
-                    url: "#",
-                },
-            ],
-        },
-        {
-            title: "Settings",
-            url: "#",
-            icon: Settings2,
-            items: [
-                {
-                    title: "General",
-                    url: "#",
-                },
-                {
-                    title: "Team",
-                    url: "#",
-                },
-                {
-                    title: "Billing",
-                    url: "#",
-                },
-                {
-                    title: "Limits",
-                    url: "#",
-                },
-            ],
-        },
-    ],
-    projects: [
-        {
-            name: "Design Engineering",
-            url: "#",
-            icon: Frame,
-        },
-        {
-            name: "Sales & Marketing",
-            url: "#",
-            icon: PieChart,
-        },
-        {
-            name: "Travel",
-            url: "#",
-            icon: Map,
-        },
-    ],
-}
+    useEffect(() => {
+        console.log(user.id, chats);
+        if (!user.id) return
+        pb.collection('chats')
+            .getList(1, 20, { filter: `userId = "${user.id}"`, sort: '-created' })
+            .then(res => {
+                setChats(res.items.map(item => ({ id: item.id })));
+                console.log(res);
+            })
+            .catch(console.error);
+    }, [user.id])
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+
+    const navItems = [
+        { title: 'Dashboard', url: '/', icon: Home },
+        { title: 'Exam Buster', url: '/prep', icon: ClipboardList },
+        { title: 'AI Chat', url: '/chat', icon: Bot },
+    ]
+
     return (
-        <Sidebar collapsible="icon" {...props}>
+        <Sidebar collapsible="icon">
             <SidebarHeader>
-                <TeamSwitcher teams={data.teams} />
+                <TeamSwitcher teams={[{
+                    name: "test",
+                    logo: "div",
+                    plan: "Free Tier"
+                }]} />
             </SidebarHeader>
-            <SidebarContent>
-                <NavMain items={data.navMain} />
-                <NavProjects projects={data.projects} />
+
+            <SidebarContent className='overflow-hidden'>
+                <NavMain items={navItems} />
+                <SidebarSeparator />
+                <SidebarGroup>
+                    <SidebarGroupLabel>Chats</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        {chats.length > 0 ? (
+                            chats.map(chat => (
+                                <SidebarMenuItem className='list-none' key={chat.id} onClick={()=>window.location.replace(`/chat?chatId=${chat.id}`)}>
+                                    <SidebarMenuButton tooltip={chat.id}>
+                                        <MessageSquare />
+                                        <span>{chat.id.slice(0, 8)}</span>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))
+                        ) : (
+                            <div className="px-2 py-1 text-sm text-muted-foreground">No chats yet</div>
+                        )}
+                    </SidebarGroupContent>
+                </SidebarGroup>
             </SidebarContent>
+
             <SidebarFooter>
-                <NavUser user={data.user} />
+                <NavUser user={user} />
             </SidebarFooter>
             <SidebarRail />
-        </Sidebar>
+        </Sidebar >
     )
 }
