@@ -1,6 +1,6 @@
 "use client"
 import React, { useEffect, useState } from 'react'
-import { Home, ClipboardList, Bot, MessageSquare } from 'lucide-react'
+import { Home, ClipboardList, Bot, MessageSquare, Plus, Trash } from 'lucide-react'
 import { pb } from '@/lib/db'
 import { NavMain } from '@/components/app/nav-main'
 import { NavUser } from '@/components/app/nav-user'
@@ -18,28 +18,61 @@ import {
     SidebarMenuItem,
     SidebarMenuButton,
 } from '@/components/ui/sidebar'
+import { Button } from '../ui/button'
 
 export function AppSidebar() {
-    const user = pb.authStore.record
-    const [chats, setChats] = useState<Array<{ id: string }>>([])
+    const user = pb.authStore.record ? {
+        id: pb.authStore.record.id || '',
+        name: pb.authStore.record.name || 'User',
+        email: pb.authStore.record.email || '',
+        avatar: pb.authStore.record.avatar || '',
+    } : null;
+    const [chats, setChats] = useState<Array<{ id: string, name: string }>>([])
 
     useEffect(() => {
-        console.log(user.id, chats);
-        if (!user.id) return
+        if (!user?.id) return
         pb.collection('chats')
             .getList(1, 20, { filter: `userId = "${user.id}"`, sort: '-created' })
             .then(res => {
-                setChats(res.items.map(item => ({ id: item.id })));
-                console.log(res);
+                setChats(res.items.map(item => ({ id: item.id, name: item.name })));
             })
             .catch(console.error);
-    }, [user.id])
+    }, [user?.id])
 
+
+    const handleCreateChat = async () => {
+        if (!user?.id) return;
+        try {
+            const newChat = await pb.collection('chats').create({
+                userId: user.id,
+                name: 'New Chat',
+            });
+            setChats(prevChats => [...prevChats, { id: newChat.id, name: newChat.name }]);
+            window.location.replace(`${window.location.origin}/chat?chatId=${newChat.id}`);
+        } catch (error) {
+            console.error('Error creating chat:', error);
+        }
+    };
+
+    const handleDeleteChat = async (chatId: string) => {
+        if (!user?.id) return;
+        try {
+            setChats(prevChats => prevChats.filter(chat => chat.id !== chatId));
+            await pb.collection('chats').delete(chatId);
+        } catch (error) {
+            console.error('Error deleting chat:', error);
+        }
+    };
+
+    function navigateToChat(id: string) {
+        if (chats.some(x => x.id === id))
+            window.location.replace(`/chat?chatId=${id}`);
+    }
 
     const navItems = [
         { title: 'Dashboard', url: '/', icon: Home },
         { title: 'Exam Buster', url: '/prep', icon: ClipboardList },
-        { title: 'AI Chat', url: '/chat', icon: Bot },
+        { title: 'Henry\'s DMs', url: '/chat', icon: Bot },
     ]
 
     return (
@@ -56,14 +89,21 @@ export function AppSidebar() {
                 <NavMain items={navItems} />
                 <SidebarSeparator />
                 <SidebarGroup>
-                    <SidebarGroupLabel>Chats</SidebarGroupLabel>
+                    <SidebarGroupLabel>DMs</SidebarGroupLabel>
                     <SidebarGroupContent>
+                        <SidebarMenuButton onClick={handleCreateChat}>
+                            <Plus></Plus>
+                            New Chat
+                        </SidebarMenuButton>
                         {chats.length > 0 ? (
                             chats.map(chat => (
-                                <SidebarMenuItem className='list-none' key={chat.id} onClick={()=>window.location.replace(`/chat?chatId=${chat.id}`)}>
+                                <SidebarMenuItem className='list-none' key={chat.id} onClick={() => navigateToChat(chat.id)}>
                                     <SidebarMenuButton tooltip={chat.id}>
                                         <MessageSquare />
-                                        <span>{chat.id.slice(0, 8)}</span>
+                                        <span>{chat.name}</span>
+                                        <Button onClick={() => handleDeleteChat(chat.id)} className="ml-auto hover:bg-muted" variant='ghost'>
+                                            <Trash></Trash>
+                                        </Button>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             ))

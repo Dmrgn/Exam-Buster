@@ -70,7 +70,7 @@ export async function postChat(req: BunRequest): Promise<Response> {
             toolDepth += 1;
             wasToolCalled = false;
             const aiRes = await cerebras.chat.completions.create({
-                model: 'llama-4-scout-17b-16e-instruct',
+                model: 'qwen-3-32b',
                 messages: [{ role: 'system', content: CHAT_SYSTEM_PROMPT }, ...msgs, ...toolMsgs, ...fileMsgs],
                 tools: CHAT_TOOLS,
             });
@@ -105,13 +105,15 @@ export async function postChat(req: BunRequest): Promise<Response> {
                         .map(x => `\n## ${x.title}\nUrl: ${x.url}\nDescription: ${x.description}\nAge: ${x.age ?? 'unknown'}`)
                         .slice(0, 8)
                         .join('\n');
-                    console.log(toolResponse);
                     toolMsgs.push({ role: 'tool', content: toolResponse, tool_call_id: fnCall.id });
                 } else if (fn.name === 'openUrl') {
                     const textContent = await (await fetch(args.url)).text();
                     const markdown = NodeHtmlMarkdown.translate(textContent);
-                    console.log(markdown.slice(0, 3000));
                     toolMsgs.push({ role: 'tool', content: markdown.slice(0, 3000), tool_call_id: fnCall.id });
+                } else if (fn.name === 'desmos') {
+                    // Handle desmos graphing tool: generate code block for frontend
+                    const { expressions } = args as { expressions: string[] };
+                    toolMsgs.push({ role: 'tool', content: 'This message is not visible to the user, so please repeat the following as part of your response in order to display the graph to the user: ```desmos\n' + expressions.join('\n') + '\n```', tool_call_id: fnCall.id });
                 } else {
                     console.error('Unknown tool:', fn.name);
                 }

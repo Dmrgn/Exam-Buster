@@ -40,7 +40,7 @@ export default function App() {
                             </p>
                             <ul className="list-disc list-inside mt-2">
                                 <li>Prep Plans: Upload assignments and view study plans</li>
-                                <li>AI Chat: Interactive chat with AI assistant</li>
+                                <li>Henry's DMs: Interactive chat with AI assistant</li>
                             </ul>
                         </CardContent>
                     </Card>

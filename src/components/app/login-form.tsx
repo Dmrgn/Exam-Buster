@@ -51,8 +51,8 @@ export function LoginForm({
     }
 
     return (
-        <div className={cn("flex flex-col gap-6", className)}>
-            <Card>
+        <div className={cn("flex flex-col w-full gap-6 items-center", className)}>
+            <Card className="max-w-md">
                 <CardHeader>
                     <CardTitle className="text-3xl text-center">{isRegister ? 'Register' : 'Login'}</CardTitle>
                     <CardDescription>

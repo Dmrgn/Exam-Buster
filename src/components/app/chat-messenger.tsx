@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card } from "@/components/ui/card"
-import { Send, Paperclip, X, MoreHorizontal } from "lucide-react"
+import { Send, Paperclip, X, MoreHorizontal, BotIcon } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 import {
@@ -24,6 +24,8 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 
 import 'katex/dist/katex.min.css'
+import { Badge } from "../ui/badge";
+import ChatInput from "./chat-input";
 
 interface Message {
     role: 'user' | 'assistant';
@@ -38,15 +40,15 @@ interface Chat {
     updated: DateTime;
 }
 
+const DESMOS_API_KEY = "dcb31709b452b1cf9dc26972add0fda6"; // this is a demo key, so putting it here is fine
+
 export default function ChatMessenger() {
-    const [files, setFiles] = useState<FileList | undefined>(undefined);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const inputRef = useRef<HTMLTextAreaElement>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     const currentUser = pb.authStore.record;
     const userId = currentUser.id;
 
+    const [quotedText, setQuotedText] = useState<string>("");
     const [chatId, setChatId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[] | null>(null);
     const [chats, setChats] = useState<Chat[] | null>(null);
@@ -54,11 +56,10 @@ export default function ChatMessenger() {
     const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
     const [chatsLoading, setChatsLoading] = useState<boolean>(false);
 
-    const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const endRef = useRef<HTMLDivElement>(null);
 
-    // Actions: delete or reference a message
+    // delete or reference a message
     const handleDelete = async (idx: number) => {
         setMessages(messages.filter((_, i) => i !== idx));
         await pb.collection('chats').update(chatId, { messages: messages.filter((_, i) => i !== idx) });
@@ -67,24 +68,25 @@ export default function ChatMessenger() {
     const handleReference = (idx: number) => {
         if (!messages) return;
         const msg = messages[idx];
-        // Quote each line
+        // quote each line
         const quote = msg.content
             .split("\n")
             .map((line) => `> ${line}`)
             .join("\n")
             + "\n\n";
-        setInput((prev) => quote + prev);
+        setQuotedText((prev) => quote + prev);
     };
 
     // Scroll to bottom on new messages
     useEffect(() => {
         endRef.current?.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
-        inputRef.current.focus();
     }, [messages]);
 
     if (chatId === null) {
         const queryParam = new URLSearchParams(window.location.search).get("chatId");
-        if (queryParam !== null) setChatId(queryParam);
+        if (queryParam !== null) {
+            setChatId(queryParam);
+        }
         if (chats === null && !chatsLoading) {
             setChatsLoading(true);
             fetchChats().then(() => {
@@ -102,13 +104,15 @@ export default function ChatMessenger() {
 
     // Fetch messages for existing chat
     async function fetchMessages(id: string) {
-        const chat = await pb.collection("chats").getOne(id);
-        setMessages(chat.messages);
+        try {
+            const chat = await pb.collection("chats").getOne(id);
+            setMessages(chat.messages);
+        } catch {
+            window.location.replace(window.location.origin);
+        }
     }
-
     async function fetchChats() {
         pb.autoCancellation(false);
-        console.log(chatId);
         const chats = await pb.collection("chats").getList(1, 20, { filter: `userId = "${userId}"`, sort: '-created' });
         pb.autoCancellation(true);
         setChats(chats.items as any as Chat[]);
@@ -116,16 +120,16 @@ export default function ChatMessenger() {
     }
 
     // Ensure a chat exists client-side, then send a user message to the server
-    async function sendMessage(): Promise<string> {
+    async function sendMessage(input: string, files: FileList | undefined): Promise<void> {
+        setLoading(true);
         let localChatId = chatId;
         // Create a new chat record in PocketBase if none exists
         if (!localChatId) {
-            const newChat = await pb.collection('chats').create({ userId, messages: [] });
+            const newChat = await pb.collection('chats').create({ userId, messages: [], name: "New Chat" });
             localChatId = newChat.id;
             setChatId(localChatId);
         }
         // check for uploaded files
-        console.log(files);
         let fileNames = [];
         if (files !== undefined && files.length > 0) {
             fileNames = (await pb.collection('chats').update(chatId, { files: Array.from(files) })).files;
@@ -133,42 +137,13 @@ export default function ChatMessenger() {
         // Build payload for /api/chat: always includes chatId
         const payload: any = { userId, chatId: localChatId, content: input, files: fileNames };
         // Send to server for AI response and persistence
-        const res = await fetch('/api/chat', {
+        await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
-        await res.json();
-        // Return the chatId used
-        return localChatId;
-    }
-
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files) {
-            console.log(event.target.files);
-            setFiles(event.target.files);
-        }
-    }
-
-    const removeFiles = () => {
-        setFiles(undefined);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
-    }
-
-    const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        // Prevent empty sends
-        if (!input.trim()) return;
-        setLoading(true);
-        // Create chat if needed and send message
-        const usedChatId = await sendMessage();
-        // Refresh messages from server
-        await fetchMessages(usedChatId);
+        await fetchMessages(chatId);
         setLoading(false);
-        setInput('');
-        removeFiles();
     }
 
     return (
@@ -177,12 +152,20 @@ export default function ChatMessenger() {
             <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center space-x-3">
                     <Avatar>
-                        <AvatarFallback>AI</AvatarFallback>
+                        <AvatarFallback>
+                            <BotIcon></BotIcon>
+                        </AvatarFallback>
                     </Avatar>
                     <div>
-                        <h3 className="font-semibold">AI Assistant</h3>
+                        <h3 className="font-semibold">Henry</h3>
                         <p className="text-sm text-muted-foreground">Online</p>
                     </div>
+                </div>
+                <div className="items-center space-x-3 sm:flex hidden">
+                    <Badge variant="outline">Web Access</Badge>
+                    <Badge variant="outline">Graphing</Badge>
+                    <Badge variant="outline">Image Generation</Badge>
+                    <Badge variant="outline">Image Recognition</Badge>
                 </div>
             </div>
 
@@ -197,10 +180,10 @@ export default function ChatMessenger() {
 
                     {messages?.map((message, index) => {
                         // summary: first line or truncated
-                        const firstLine = message.content.split("\n")[0]
+                        const firstLine = message.content.trim().split("\n")[0]
                         const preview = firstLine.length > 50 ? firstLine.slice(0, 50) + "..." : firstLine
                         return (
-                            <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} items-start space-x-2`}>
+                            <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} items-start space-x-2`}>
                                 <div
                                     className={`flex max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"} items-start gap-2`}
                                 >
@@ -234,19 +217,13 @@ export default function ChatMessenger() {
                                                     {preview}
                                                 </AccordionTrigger>
                                                 <AccordionContent >
-                                                    <div className="prose prose-invert ">
-                                                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                                                            {message.content}
-                                                        </ReactMarkdown>
-                                                    </div>
+                                                    <RichMessageText message={message} />
                                                 </AccordionContent>
                                             </AccordionItem>
                                         </Accordion>}
-                                        {message.content.length < 200 && <div className="prose prose-invert ">
-                                            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                                                {message.content}
-                                            </ReactMarkdown>
-                                        </div>}
+                                        {message.content.length < 200 &&
+                                            <RichMessageText message={message} />
+                                        }
                                     </div>
                                 </div>
                             </div>
@@ -280,84 +257,53 @@ export default function ChatMessenger() {
                 </div>
             </ScrollArea>
 
-            {/* File Preview */}
-            {files && files.length > 0 && (
-                <div className="px-4 py-2 border-t bg-muted/50">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                            <Paperclip className="w-4 h-4" />
-                            <span className="text-sm">
-                                {files.length} file{files.length > 1 ? "s" : ""} selected
-                            </span>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={removeFiles}>
-                            <X className="w-4 h-4" />
-                        </Button>
-                    </div>
-                </div>
-            )}
-
             {/* Input Area */}
-            <div className="p-4 border-t">
-                <form onSubmit={onSubmit} className="flex items-end space-x-2">
-                    <div className="flex-1">
-                        <Textarea
-                            ref={inputRef}
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Type a message..."
-                            disabled={loading}
-                            className="resize-none min-h-[40px] max-h-[120px] overflow-y-auto max-w-full"
-                            rows={1}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault()
-                                    if (input.trim() || files) {
-                                        const form = e.currentTarget.form
-                                        if (form) {
-                                            const submitEvent = new Event("submit", { bubbles: true, cancelable: true })
-                                            form.dispatchEvent(submitEvent)
-                                        }
-                                    }
-                                }
-                            }}
-                            style={{
-                                height: "auto",
-                                minHeight: "40px",
-                                maxHeight: "120px",
-                            }}
-                            onInput={(e) => {
-                                const target = e.target as HTMLTextAreaElement
-                                target.style.height = "auto"
-                                target.style.height = Math.min(target.scrollHeight, 120) + "px"
-                            }}
-                        />
-                    </div>
-
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileSelect}
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                    />
-
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={loading}
-                    >
-                        <Paperclip className="w-4 h-4" />
-                    </Button>
-
-                    <Button type="submit" size="icon" disabled={loading || (!input.trim() && !files)}>
-                        <Send className="w-4 h-4" />
-                    </Button>
-                </form>
-            </div>
+            <ChatInput sendMessage={sendMessage} quotedText={quotedText} setQuotedText={setQuotedText} loading={loading}></ChatInput>
         </Card>
     )
 }
+function RichMessageText({ message }: { message: Message }) {
+    return <div className="max-w-[70vw] overflow-x-auto prose prose-invert">
+        <ReactMarkdown
+            components={{
+                code({ node, className, children, ...props }) {
+                    const match = /language-desmos/.exec(className || '');
+                    if (match) {
+                        const expressions =
+                            children.split("\n")
+                                .filter(Boolean);
+
+                        const iframeContent = `
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                            <script src="https://www.desmos.com/api/v1.7/calculator.js?apiKey=${DESMOS_API_KEY}"></script>
+                            </head>
+                            <body>
+                            <div id="calculator" style="width: 95vw; height: 95vh;"></div>
+                            <script>
+                                var elt = document.getElementById('calculator');
+                                var calculator = Desmos.GraphingCalculator(elt);
+                                calculator.setExpressions([${expressions.map((x, i) => (JSON.stringify({ id: i, latex: x }))).join(", ")}]);
+                            <\/script>
+                            </body>
+                            </html>
+                        `;
+
+                        const blob = new Blob([iframeContent], { type: 'text/html' });
+                        const url = URL.createObjectURL(blob);
+                        return (
+                            <iframe src={url} className="max-w-[70vw] w-full" width="600" height="600" />
+                        )
+                    }
+                    return <code className={className} {...props}>{children}</code>
+                }
+            }}
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+        >
+            {message.content}
+        </ReactMarkdown>
+    </div>
+}
+

@@ -66,6 +66,10 @@ Use the "search" and "openUrl" tool to access up-to-date information from the we
 - Freshness: If up-to-date information on a topic could potentially change or enhance the answer, call the "search" & "openUrl" tool any time you would otherwise refuse to answer a question because your knowledge might be out of date.
 - Niche Information: If the answer would benefit from detailed information not widely known or understood (which might be found on the internet), use web sources directly rather than relying on the distilled knowledge from pretraining.
 - Accuracy: If the cost of a small mistake or outdated information is high (e.g., using an outdated version of a software library or not knowing the date of the next game for a sports team), then use the "search" & "openUrl" tool.
+
+## desmos
+
+Use the "desmos" tool when you need to graph one or more mathematical functions. Provide an array of function expressions to plot (in terms of x, alternatively you may specify points, inequalities, or variable definitions). After generating the graph, do not include any other text; the frontend will render the graph.
 `
 
 export const CHAT_TOOLS = [
@@ -124,6 +128,24 @@ export const CHAT_TOOLS = [
                     },
                 },
                 required: ["url"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "desmos",
+            strict: true,
+            description: "Generates a graph of provided function expressions. Returns a code block with language 'desmos' listing one expression per line.",
+            parameters: {
+                type: "object",
+                properties: {
+                    expressions: {
+                        type: "array",
+                        items: { type: "string", description: "A function expression in terms of x, e.g. \\sin(x), x^2 or a point, inequality or variable definition." }
+                    }
+                },
+                required: ["expressions"],
             }
         }
     }

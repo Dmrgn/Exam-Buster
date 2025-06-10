@@ -22,7 +22,7 @@ export default function ChatScreen() {
                                 </BreadcrumbItem>
                                 <BreadcrumbSeparator className="hidden md:block" />
                                 <BreadcrumbItem>
-                                    <BreadcrumbPage>AI Chat</BreadcrumbPage>
+                                    <BreadcrumbPage>Henry's DMs</BreadcrumbPage>
                                 </BreadcrumbItem>
                             </BreadcrumbList>
                         </Breadcrumb>

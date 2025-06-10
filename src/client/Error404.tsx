@@ -3,7 +3,7 @@ import "../../styles/index.css";
 
 export function Error404() {
     return (
-        <div className="container mx-auto p-8 text-center relative z-10">
+        <div className="container mx-auto p-8 text-center relative z-10 max-w-md">
             <Card className="bg-card/50 backdrop-blur-sm border-muted">
                 <CardContent className="pt-6">
                     <h1 className="text-5xl font-bold my-4 leading-tight">Error 404</h1>
