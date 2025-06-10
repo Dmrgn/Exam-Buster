@@ -113,10 +113,15 @@ export default function ChatMessenger() {
     }
     async function fetchChats() {
         pb.autoCancellation(false);
-        const chats = await pb.collection("chats").getList(1, 20, { filter: `userId = "${userId}"`, sort: '-created' });
+        let chats = await pb.collection("chats").getList(1, 20, { filter: `userId = "${userId}"`, sort: '-created' });
+        // force create a chat
+        if (chats.items.length === 0) {
+            await pb.collection('chats').create({ userId, messages: [], name: "Empty Chat" });
+            chats = await pb.collection("chats").getList(1, 20, { filter: `userId = "${userId}"`, sort: '-created' });
+        }
         pb.autoCancellation(true);
         setChats(chats.items as any as Chat[]);
-        setChatId(chats.items.length === 0 ? null : chats.items[0].id);
+        setChatId(chats.items[0].id);
     }
 
     // Ensure a chat exists client-side, then send a user message to the server
@@ -125,7 +130,7 @@ export default function ChatMessenger() {
         let localChatId = chatId;
         // Create a new chat record in PocketBase if none exists
         if (!localChatId) {
-            const newChat = await pb.collection('chats').create({ userId, messages: [], name: "New Chat" });
+            const newChat = await pb.collection('chats').create({ userId, messages: [], name: "Empty Chat" });
             localChatId = newChat.id;
             setChatId(localChatId);
         }

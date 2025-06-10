@@ -45,7 +45,7 @@ export function AppSidebar() {
         try {
             const newChat = await pb.collection('chats').create({
                 userId: user.id,
-                name: 'New Chat',
+                name: 'Empty Chat',
             });
             setChats(prevChats => [...prevChats, { id: newChat.id, name: newChat.name }]);
             window.location.replace(`${window.location.origin}/chat?chatId=${newChat.id}`);
@@ -93,22 +93,20 @@ export function AppSidebar() {
                     <SidebarGroupContent>
                         <SidebarMenuButton onClick={handleCreateChat}>
                             <Plus></Plus>
-                            New Chat
+                            Start Chat
                         </SidebarMenuButton>
-                        {chats.length > 0 ? (
+                        {chats.length > 0 && (
                             chats.map(chat => (
                                 <SidebarMenuItem className='list-none' key={chat.id} onClick={() => navigateToChat(chat.id)}>
                                     <SidebarMenuButton tooltip={chat.id}>
                                         <MessageSquare />
                                         <span>{chat.name}</span>
-                                        <Button onClick={() => handleDeleteChat(chat.id)} className="ml-auto hover:bg-muted" variant='ghost'>
-                                            <Trash></Trash>
-                                        </Button>
+                                        <div onClick={() => handleDeleteChat(chat.id)} className="ml-auto hover:bg-muted">
+                                            <Trash className='w-4'></Trash>
+                                        </div>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             ))
-                        ) : (
-                            <div className="px-2 py-1 text-sm text-muted-foreground">No chats yet</div>
                         )}
                     </SidebarGroupContent>
                 </SidebarGroup>
