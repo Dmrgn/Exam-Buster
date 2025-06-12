@@ -4,6 +4,8 @@ import type { BraveRoot } from '@/lib/braveTypes';
 import { z } from 'zod';
 import { pb } from '@/lib/db';
 import { fetchPdfText } from '@/lib/pdf';
+import { checkAndUpdateUsage, incrementUsage, SubscriptionError } from '../../lib/subscription';
+import type { UserRecord, PlanRecord } from '../../lib/subscription';
 import { cerebras, openai, CHAT_SYSTEM_PROMPT, CHAT_TOOLS, replicate, IMAGE_ASPECT_RATIOS } from '@/lib/ai';
 import { config } from '../../lib/config.server';
 import { NodeHtmlMarkdown } from 'node-html-markdown'
@@ -14,6 +16,7 @@ import { NodeHtmlMarkdown } from 'node-html-markdown'
  * Handles a user message, optional file attachment, and returns chatId.
  */
 export async function postChat(req: BunRequest): Promise<Response> {
+    // Main try-catch for controller logic, including subscription checks
     try {
         // Validate body
         const schema = z.object({
@@ -24,6 +27,9 @@ export async function postChat(req: BunRequest): Promise<Response> {
         });
         const { userId, chatId, content, files } = schema.parse(await req.json());
 
+        // Subscription Check for 'chat' feature
+        await checkAndUpdateUsage(userId, 'chat', 1);
+
         // Prepare file message if present
         const fileMsgs: any[] = [];
         if (files && files.length > 0) {
@@ -31,11 +37,13 @@ export async function postChat(req: BunRequest): Promise<Response> {
             const fileType = fileName.split('.').pop()?.toLowerCase() || '';
             const fileUrl = `${config.pocketbaseUrl}/api/files/chats/${chatId}/${fileName}`;
             if (['png', 'jpg', 'jpeg', 'webp'].includes(fileType)) {
+                await checkAndUpdateUsage(userId, 'image view', 1);
                 const arrayBuf = await (await fetch(fileUrl)).arrayBuffer();
                 const imageData = Buffer.from(arrayBuf).toString('base64');
                 const dataUri = `data:image/${fileType};base64,${imageData}`;
                 const aiRes = await openai.chat.completions.create({
                     model: 'google/gemini-2.0-flash-exp:free',
+                    // @ts-expect-error we are using openrouter which supports a models parameter, but the openai sdk doesn't like it
                     models: ["opengvlab/internvl3-14b:free", "meta-llama/llama-4-maverick:free", "qwen/qwen2.5-vl-32b-instruct:free"],
                     messages: [
                         {
@@ -48,6 +56,7 @@ export async function postChat(req: BunRequest): Promise<Response> {
                 });
                 fileMsgs.push({ role: 'user', content: `File type: ${fileType} File data: ${aiRes.choices[0].message.content.slice(0, 5000)}` });
             } else if (fileType === 'pdf') {
+                await checkAndUpdateUsage(userId, 'pdf view', 1);
                 const pdfText = await fetchPdfText(fileUrl);
                 fileMsgs.push({ role: 'user', content: `File type: ${fileType} File data: ${pdfText.slice(0, 5000)}` });
             } else {
@@ -58,6 +67,28 @@ export async function postChat(req: BunRequest): Promise<Response> {
         // Fetch existing chat messages
         const chat = await pb.collection('chats').getOne(chatId);
         const msgs = Array.isArray(chat.messages) ? [...chat.messages] : [];
+
+        // Check if this is the first message
+        if (msgs.length === 0) {
+            try {
+                // Generate chat name using Llama 3.1 8b
+                const namePrompt = `Here is the first message in a chat: "${content}". Respond with the topic this chat is about. Respond with only the topic, in less than 4 words.`;
+                const nameAiRes = await cerebras.chat.completions.create({
+                    model: 'llama3.1-8b',
+                    messages: [{ role: 'user', content: namePrompt }],
+                    max_tokens: 20, // Limit the length of the generated name
+                });
+                const generatedName = nameAiRes.choices[0].message.content.trim();
+
+                // Update chat with the generated name
+                await pb.collection('chats').update(chatId, { name: generatedName });
+
+            } catch (nameErr) {
+                console.error('Error generating or saving chat name:', nameErr);
+                // Continue without a generated name if there's an error
+            }
+        }
+
         msgs.push({ role: 'user', content });
         await pb.collection('chats').update(chatId, { messages: msgs });
 
@@ -82,16 +113,35 @@ export async function postChat(req: BunRequest): Promise<Response> {
                 wasToolCalled = true;
                 toolMsgs.push(choice);
                 if (fn.name === 'image_gen') {
+                    // Check for 'image gen' feature
+                    await checkAndUpdateUsage(userId, 'image gen', 1);
+
                     const input = {
                         prompt: args.prompt,
                         aspect_ratio: (IMAGE_ASPECT_RATIOS.includes(args.aspectRatio) ? args.aspect_ratio : "1:1"),
                     };
-                    const output: FileOutput[] = await replicate.run("black-forest-labs/flux-schnell", { input });
+
+                    const output = await replicate.run("black-forest-labs/flux-schnell", { input }) as unknown as FileOutput[];
                     const imageBlob = await output[0].blob();
                     const imageFile = new File([imageBlob], 'image.webp', { type: imageBlob.type });
-                    const fileRecord = await pb.collection("chats").update(chatId, { "files+": imageFile });
+
+                    const generatedImageMb = imageBlob.size / (1024 * 1024);
+
+                    // Check for 'file upload' feature for the generated image size
+                    await checkAndUpdateUsage(userId, 'file upload', generatedImageMb);
+
+                    // If both checks passed, proceed to update and increment
+                    const fileRecord = await pb.collection("chats").update(chatId, {
+                        "files+": imageFile,
+                        "totalUploadedMb+": generatedImageMb // Add to chat's total uploaded MB
+                    });
+
+                    await incrementUsage(userId, 'image gen', 1);
+                    await incrementUsage(userId, 'file upload', generatedImageMb);
+
                     const fileUrl = `${config.pocketbaseUrl}/api/files/chats/${chatId}/${fileRecord.files[fileRecord.files.length - 1]}`;
                     toolMsgs.push({ role: 'tool', content: `Here is the generated image. This message is not visible to the user, so please repeat the image Markdown: ![${args.prompt}](${fileUrl})`, tool_call_id: fnCall.id });
+
                 } else if (fn.name === 'search') {
                     const results: BraveRoot = await (await fetch(`https://api.search.brave.com/res/v1/web/search?q=${args.query}`, {
                         method: 'get',
@@ -111,9 +161,15 @@ export async function postChat(req: BunRequest): Promise<Response> {
                     const markdown = NodeHtmlMarkdown.translate(textContent);
                     toolMsgs.push({ role: 'tool', content: markdown.slice(0, 3000), tool_call_id: fnCall.id });
                 } else if (fn.name === 'desmos') {
+                    // Check for 'graphing' feature
+                    await checkAndUpdateUsage(userId, 'graphing', 1);
+
                     // Handle desmos graphing tool: generate code block for frontend
                     const { expressions } = args as { expressions: string[] };
                     toolMsgs.push({ role: 'tool', content: 'This message is not visible to the user, so please repeat the following as part of your response in order to display the graph to the user: ```desmos\n' + expressions.join('\n') + '\n```', tool_call_id: fnCall.id });
+
+                    // Increment 'graphing' usage
+                    await incrementUsage(userId, 'graphing', 1);
                 } else {
                     console.error('Unknown tool:', fn.name);
                 }
@@ -126,11 +182,27 @@ export async function postChat(req: BunRequest): Promise<Response> {
         msgs.push({ role: 'assistant', content: finalMessage });
         await pb.collection('chats').update(chatId, { messages: msgs });
 
+        // Increment chat usage after successful processing
+        await incrementUsage(userId, 'chat', 1);
+
         return new Response(JSON.stringify({ chatId }), {
             headers: { 'Content-Type': 'application/json' },
         });
     } catch (err: any) {
         console.error('postChat error:', err);
+        if (err instanceof SubscriptionError) {
+            // Handle subscription errors specifically
+            const status = err.type === 'limit_reached' ? 429 : 403; // 429 for rate limit, 403 for forbidden
+            return new Response(
+                JSON.stringify({
+                    error: err.message,
+                    type: err.type,
+                    feature: err.feature,
+                    limit: err.limit,
+                }),
+                { status }
+            );
+        }
         if (err instanceof z.ZodError) {
             return new Response(JSON.stringify({ error: 'Invalid request payload' }), { status: 400 });
         }

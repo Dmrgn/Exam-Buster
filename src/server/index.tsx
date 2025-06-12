@@ -4,6 +4,9 @@ import { config } from '../lib/config.server';
 import { getSummary } from './controllers/summaryController';
 import { getPrep } from './controllers/prepController';
 import { postChat } from './controllers/chatController';
+import {pb} from "../lib/db"
+
+pb.collection('_superusers').authWithPassword(process.env["SUPER_USER_EMAIL"], process.env["SUPER_USER_PASSWORD"], { autoRefreshThreshold: 30 * 60 });
 
 const server = serve({
     routes: {

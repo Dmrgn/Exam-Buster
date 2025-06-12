@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useState } from "react";
 import { pb } from "@/lib/db";
+import { getInitialUsage } from "../../lib/subscription"; // Added for initial usage
 
 export function LoginForm({
     className,
@@ -21,8 +22,8 @@ export function LoginForm({
     async function login(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
         try {
-            const email = event.currentTarget.elements.email.value;
-            const password = event.currentTarget.elements.password.value;
+            const email = (event.currentTarget.elements.namedItem('email') as HTMLInputElement).value;
+            const password = (event.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
             const authData = await pb.collection("users").authWithPassword(email, password);
             window.location.replace("/");
         } catch (e) {
@@ -33,18 +34,28 @@ export function LoginForm({
     async function register(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
         try {
-            const email = event.currentTarget.elements.email.value;
-            const password = event.currentTarget.elements.password.value;
-            const passwordConfirm = event.currentTarget.elements.confirmPassword.value;
+            const email = (event.currentTarget.elements.namedItem('email') as HTMLInputElement).value;
+            const password = (event.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
+            const passwordConfirm = (event.currentTarget.elements.namedItem('confirmPassword') as HTMLInputElement).value;
             const newUser = await pb
                 .collection('users')
                 .create({
                     email,
                     password,
-                    passwordConfirm
+                    passwordConfirm,
                 });
+
+            // Authenticate the new user
             const authData = await pb.collection("users").authWithPassword(email, password);
-                window.location.replace("/");
+            
+            // Set default plan and initial usage for the new user
+            const defaultPlanId = "j2ty5q282cortmn"; // "pro" plan ID
+            const initialUsageData = getInitialUsage();
+            await pb.collection('users').update(newUser.id, {
+                plan: defaultPlanId,
+                usage: initialUsageData
+            });
+            window.location.replace("/");
         } catch (e) {
             setErrorMessage(e.message);
         }

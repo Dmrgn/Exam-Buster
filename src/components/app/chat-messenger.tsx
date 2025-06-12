@@ -134,6 +134,8 @@ export default function ChatMessenger() {
             localChatId = newChat.id;
             setChatId(localChatId);
         }
+        if (messages && messages.length > 0)
+            setMessages([...messages, { role: 'user', content: input }]);
         // check for uploaded files
         let fileNames = [];
         if (files !== undefined && files.length > 0) {
@@ -174,10 +176,10 @@ export default function ChatMessenger() {
                 </div>
             </div>
 
-            {/* Messages (collapsible) */}
-            <ScrollArea className="flex-1 p-4 h-[70vh] overflow-hidden" ref={scrollAreaRef}>
+            {/* Messages */}
+            <ScrollArea className="flex-1 p-4 max-h-[70vh] min-h-[70vh] overflow-hidden" ref={scrollAreaRef}>
                 <div className="flex flex-col space-y-4">
-                    {messages?.length === 0 && (
+                    {(messages === null || messages?.length === 0) && (
                         <div className="text-center text-muted-foreground py-8">
                             <p>Start a conversation by sending a message or image/pdf!</p>
                         </div>

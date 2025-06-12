@@ -1,4 +1,4 @@
-import { Paperclip, Send } from "lucide-react";
+import { Paperclip, Send, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { useEffect, useRef, useState, type FormEventHandler } from "react";
@@ -29,6 +29,7 @@ export default function ChatInput({ sendMessage, loading, quotedText, setQuotedT
         setInput('');
         await sendMessage(input, files);
         inputRef.current.focus();
+        removeFiles();
     }
 
     useEffect(()=>{

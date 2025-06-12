@@ -19,9 +19,6 @@ import { Separator } from "@/components/ui/separator";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 
 export function Prep() {
-
-    if (!localStorage.getItem("pocketbase_auth")) window.location.replace("/login");
-
     const currentUserId = pb.authStore.record.id;
     const [assignments, setAssignments] = useState<RecordModel[]>();
     const [preps, setPreps] = useState<PrepRecord[]>();
