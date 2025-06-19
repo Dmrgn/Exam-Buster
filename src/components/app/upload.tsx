@@ -9,7 +9,7 @@ import { pb } from "@/lib/db";
 /**
  * UploadForm: handles PDF assignment upload and submission
  */
-export default function UploadForm({ isShown }: { isShown: boolean }) {
+export default function UploadForm({ isShown, setShowAddAssignment, fetchAssignments }: { isShown: boolean, setShowAddAssignment: React.Dispatch<React.SetStateAction<boolean>>, fetchAssignments: () => Promise<void> }) {
     const [file, setFile] = useState<File | null>(null);
     const [errorMessage, setErrorMessage] = useState<string>("");
     const handleFileChange = (e) => {
@@ -19,7 +19,6 @@ export default function UploadForm({ isShown }: { isShown: boolean }) {
         e.preventDefault()
         try {
             await createAssignment();
-            window.location.reload();
         } catch (e) {
             setErrorMessage(e.message);
         }
@@ -36,12 +35,13 @@ export default function UploadForm({ isShown }: { isShown: boolean }) {
                 userId: currentUserId,
                 file
             });
-        const {title, summary} = await (await fetch(`/api/summary?id=${encodeURIComponent(newAssignment.id)}`)).json();
-        console.log(title, summary);
+        const { title, summary } = await (await fetch(`/api/summary?id=${encodeURIComponent(newAssignment.id)}`)).json();
         await pb.collection('assignments').update(newAssignment.id, {
             title,
             summary
         })
+        await fetchAssignments();
+        setShowAddAssignment(false);
     }
 
     if (!isShown) return null;
@@ -62,7 +62,7 @@ export default function UploadForm({ isShown }: { isShown: boolean }) {
                                     className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
                                 >
                                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                            <UploadIcon className="w-10 h-10 text-gray-400" />
+                                        <UploadIcon className="w-10 h-10 text-gray-400" />
                                         <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
                                             <span className="font-semibold">Click to upload</span> or drag and drop
                                         </p>

@@ -1,4 +1,5 @@
 import { ChevronRight, type LucideIcon } from "lucide-react"
+import { Link, useNavigate } from 'react-router-dom';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
@@ -26,6 +27,8 @@ export function NavMain({
         }[]
     }[]
 }) {
+    const navigate = useNavigate();
+
     return (
         <SidebarGroup>
             <SidebarGroupLabel>Platform</SidebarGroupLabel>
@@ -46,9 +49,9 @@ export function NavMain({
                                         {item.items?.map((subItem) => (
                                             <SidebarMenuSubItem key={subItem.title}>
                                                 <SidebarMenuSubButton asChild>
-                                                    <a href={subItem.url}>
+                                                    <Link to={subItem.url}>
                                                         <span>{subItem.title}</span>
-                                                    </a>
+                                                    </Link>
                                                 </SidebarMenuSubButton>
                                             </SidebarMenuSubItem>
                                         ))}
@@ -57,7 +60,7 @@ export function NavMain({
                             </Collapsible>
                         </>}
                         {!(item?.items) && <>
-                            <SidebarMenuButton onClick={() => window.location.replace(item.url)} tooltip={item.title}>
+                            <SidebarMenuButton onClick={() => navigate(item.url)} tooltip={item.title}>
                                 {item.icon && <item.icon />}
                                 <span>{item.title}</span>
                             </SidebarMenuButton>

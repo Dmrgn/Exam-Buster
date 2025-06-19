@@ -135,12 +135,15 @@ if (existsSync(outdir)) {
 const start = performance.now();
 
 // Scan for all HTML files in the project
-const entrypoints = [...new Bun.Glob("**.html").scanSync("src/client")]
-    .map(a => path.resolve("src/client", a))
-    .filter(dir => !dir.includes("node_modules"));
-console.log(`📄 Found ${entrypoints.length} HTML ${entrypoints.length === 1 ? "file" : "files"} to process\n`);
+const entrypoints = [
+    ...[...new Bun.Glob("**.html").scanSync("src/client")]
+        .map(a => path.resolve("src/client", a))
+        .filter(dir => !dir.includes("node_modules")),
+];
 
-// Build all the HTML files
+console.log(`📄 Found ${entrypoints.length} entry ${entrypoints.length === 1 ? "point" : "points"} to process\n`);
+
+// Build all the entry points
 const result = await build({
     entrypoints,
     outdir,

@@ -4,6 +4,7 @@ import { pb } from '@/lib/db';
 import { fetchPdfText } from '@/lib/pdf';
 import { cerebras, PREP_SYSTEM_PROMPT } from '@/lib/ai';
 import { config } from '../../lib/config.server';
+import { checkAndUpdateUsage, incrementUsage } from '@/lib/subscription';
 
 /**
  * GET /api/prep?id=<userId>
@@ -20,6 +21,9 @@ export async function getPrep(req: Request): Promise<Response> {
             filter: `userId = "${userId}"`,
             sort: '-created',
         });
+
+        await checkAndUpdateUsage(userId, 'exam buster', assignments.slice(0, 5).length);
+        await incrementUsage(userId, 'exam buster', assignments.slice(0, 5).length);
 
         // Generate study plan for up to 5 assignments
         const responses = await Promise.all(

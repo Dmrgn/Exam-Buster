@@ -26,6 +26,7 @@ import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import { Badge } from "../ui/badge";
 import ChatInput from "./chat-input";
+import { useParams } from "react-router-dom";
 
 interface Message {
     role: 'user' | 'assistant';
@@ -59,6 +60,8 @@ export default function ChatMessenger() {
     const [loading, setLoading] = useState(false);
     const endRef = useRef<HTMLDivElement>(null);
 
+    const params = useParams();
+
     // delete or reference a message
     const handleDelete = async (idx: number) => {
         setMessages(messages.filter((_, i) => i !== idx));
@@ -82,58 +85,44 @@ export default function ChatMessenger() {
         endRef.current?.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
     }, [messages]);
 
-    if (chatId === null) {
-        const queryParam = new URLSearchParams(window.location.search).get("chatId");
-        if (queryParam !== null) {
-            setChatId(queryParam);
-        }
+    useEffect(() => {
+        setChatId(params.chatId);
         if (chats === null && !chatsLoading) {
             setChatsLoading(true);
             fetchChats().then(() => {
                 setChatsLoading(false);
             });
         }
-    }
+    }, [params])
 
-    if (chatId !== null && messages === null && !messagesLoading) {
+    useEffect(() => {
+        if (chatId === null) return;
         setMessagesLoading(true);
         fetchMessages(chatId).then(() => {
             setMessagesLoading(false);
         });
-    }
+    }, [chatId]);
 
     // Fetch messages for existing chat
     async function fetchMessages(id: string) {
-        try {
-            const chat = await pb.collection("chats").getOne(id);
-            setMessages(chat.messages);
-        } catch {
-            window.location.replace(window.location.origin);
-        }
+        const chat = await pb.collection("chats").getOne(id);
+        setMessages(chat.messages);
     }
     async function fetchChats() {
         pb.autoCancellation(false);
         let chats = await pb.collection("chats").getList(1, 20, { filter: `userId = "${userId}"`, sort: '-created' });
         // force create a chat
         if (chats.items.length === 0) {
-            await pb.collection('chats').create({ userId, messages: [], name: "Empty Chat" });
+            await pb.collection('chats').create({ userId, messages: [], name: "Empty Chat", class: params.classId });
             chats = await pb.collection("chats").getList(1, 20, { filter: `userId = "${userId}"`, sort: '-created' });
         }
         pb.autoCancellation(true);
         setChats(chats.items as any as Chat[]);
-        setChatId(chats.items[0].id);
     }
 
     // Ensure a chat exists client-side, then send a user message to the server
     async function sendMessage(input: string, files: FileList | undefined): Promise<void> {
         setLoading(true);
-        let localChatId = chatId;
-        // Create a new chat record in PocketBase if none exists
-        if (!localChatId) {
-            const newChat = await pb.collection('chats').create({ userId, messages: [], name: "Empty Chat" });
-            localChatId = newChat.id;
-            setChatId(localChatId);
-        }
         if (messages && messages.length > 0)
             setMessages([...messages, { role: 'user', content: input }]);
         // check for uploaded files
@@ -142,7 +131,7 @@ export default function ChatMessenger() {
             fileNames = (await pb.collection('chats').update(chatId, { files: Array.from(files) })).files;
         }
         // Build payload for /api/chat: always includes chatId
-        const payload: any = { userId, chatId: localChatId, content: input, files: fileNames };
+        const payload: any = { userId, chatId: chatId, content: input, files: fileNames };
         // Send to server for AI response and persistence
         await fetch('/api/chat', {
             method: 'POST',

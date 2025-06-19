@@ -7,15 +7,16 @@ import type { RecordModel } from "pocketbase";
 import { FileTextIcon, CircleUserIcon, ChevronDown, GithubIcon } from "lucide-react";
 import { MathJaxContext, MathJax } from "better-react-mathjax";
 
-async function deleteAssignment(id: string) {
-    await pb.collection("assignments").delete(id);
-    window.location.reload();
-}
-
-export function AssignmentCard({ assignment }: { assignment: RecordModel }) {
+export function AssignmentCard({ assignment, fetchAssignments }: { assignment: RecordModel, fetchAssignments: () => Promise<void> }) {
     const [expanded, setExpanded] = useState(false);
     const summary = assignment.summary as string;
     const isLong = summary.length > 100;
+    
+    async function deleteAssignment(id: string) {
+        await pb.collection("assignments").delete(id);
+        await fetchAssignments();
+    }
+
     return (
         <Card className="bg-primary w-full">
             <CardTitle className="pt-4 mx-2 md:mx-4 flex items-center">

@@ -54,10 +54,12 @@ export async function postChat(req: BunRequest): Promise<Response> {
                         },
                     ],
                 });
+                await incrementUsage(userId, 'image view', 1);
                 fileMsgs.push({ role: 'user', content: `File type: ${fileType} File data: ${aiRes.choices[0].message.content.slice(0, 5000)}` });
             } else if (fileType === 'pdf') {
                 await checkAndUpdateUsage(userId, 'pdf view', 1);
                 const pdfText = await fetchPdfText(fileUrl);
+                await incrementUsage(userId, 'pdf view', 1);
                 fileMsgs.push({ role: 'user', content: `File type: ${fileType} File data: ${pdfText.slice(0, 5000)}` });
             } else {
                 fileMsgs.push({ role: 'user', content: `File type: ${fileType} not supported. Please upload PNG/JPG/WebP or PDF.` });
@@ -80,8 +82,19 @@ export async function postChat(req: BunRequest): Promise<Response> {
                 });
                 const generatedName = nameAiRes.choices[0].message.content.trim();
 
+                // Generate chat topic
+                const chats = (await pb.collection('chats').getList(1, 20)).items;
+                const topics = Array.from(new Set(chats.filter(x => x.topic !== "")).values()).join(', ');
+                const topicPrompt = `Here is a subtopic: ${generatedName}. Which of the following topics does this subtopic belong? If it doesn't belong to any, then return a new topic name to put it under. Respond with the topic name and nothing else. ${topics}`;
+                const topicAiRes = await cerebras.chat.completions.create({
+                    model: 'llama3.1-8b',
+                    messages: [{ role: 'user', content: topicPrompt }],
+                    max_tokens: 20, // Limit the length of the generated topic
+                });
+                const generatedTopic = topicAiRes.choices[0].message.content.trim();
+
                 // Update chat with the generated name
-                await pb.collection('chats').update(chatId, { name: generatedName });
+                await pb.collection('chats').update(chatId, { name: generatedName, topic: generatedTopic });
 
             } catch (nameErr) {
                 console.error('Error generating or saving chat name:', nameErr);

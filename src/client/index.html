@@ -4,10 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>📜 Exam Buster</title>
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#000000"/>
     <script type="module" src="./frontend.tsx" async></script>
     <script defer src="https://analytics.thundr.ca/script.js" data-website-id="dda6ac7a-a3ed-4248-ab71-0ea83d12b1fc"></script>
 </head>
 <body>
     <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(registration => {
+              console.log('Service Worker registered: ', registration);
+            })
+            .catch(error => {
+              console.log('Service Worker registration failed: ', error);
+            });
+        });
+      }
+    </script>
 </body>
 </html>
