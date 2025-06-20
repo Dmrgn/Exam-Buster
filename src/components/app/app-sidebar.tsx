@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/sidebar'
 import { Button } from '../ui/button'
 
-export type Chat = { id: string, name: string, topic: string };
+export type Chat = { id: string, name: string, topic: string, messages: any[] | null };
 export type Class = { id: string, color: string, name: string, userId: string };
 
 export function AppSidebar() {
@@ -61,7 +61,7 @@ export function AppSidebar() {
             pb.collection('chats')
                 .getList(1, 20, { filter: `userId = "${user.id}" && class = "${classRecord.id}"`, sort: '-created' })
                 .then(res => {
-                    setChats(res.items.map(item => ({ id: item.id, name: item.name, topic: item.topic })));
+                    setChats(res.items.map(item => ({ id: item.id, name: item.name, topic: item.topic, messages: item.messages })));
                 })
                 .catch(console.error);
         }).catch(e => {
@@ -93,7 +93,7 @@ export function AppSidebar() {
                 name: 'Empty Chat',
                 class: currentClass
             });
-            setChats(prevChats => [...prevChats, { id: newChat.id, name: newChat.name, topic: newChat.topic }]);
+            setChats(prevChats => [...prevChats, { id: newChat.id, name: newChat.name, topic: newChat.topic, messages: [] }]);
             navigate({ pathname: `/class/${currentClass}/chat/${newChat.id}` });
         } catch (error) {
             console.error('Error creating chat:', error);
@@ -102,9 +102,28 @@ export function AppSidebar() {
 
     const handleDeleteChat = async (chatId: string) => {
         if (!user?.id) return;
+        if (chats.length === 1) {
+            const newChat = await pb.collection("chats").getOne(chats[0].id);
+            if (newChat.messages === null || newChat.messages.length === 0) return;
+        }
         try {
-            setChats(prevChats => prevChats.filter(chat => chat.id !== chatId));
+            const newChats = chats.filter(chat => chat.id !== chatId);
+            setChats(newChats);
             await pb.collection('chats').delete(chatId);
+            // if we deleted the only chat then force create a new one
+            if (newChats.length === 0) {
+                const newChat = await pb.collection('chats').create({
+                    userId: user.id,
+                    name: 'Empty Chat',
+                    class: currentClass
+                });
+                const addedChats = [{ id: newChat.id, name: newChat.name, topic: newChat.topic, messages: [] }];
+                setChats(addedChats);
+                navigate({ pathname: `/class/${currentClass}/chat/${addedChats[0].id}` });
+            } else {
+                // redirect to some chat
+                navigate({ pathname: `/class/${currentClass}/chat/${newChats[0].id}` });
+            }
         } catch (error) {
             console.error('Error deleting chat:', error);
         }
