@@ -154,9 +154,6 @@ const result = await build({
     // Inject environment variables (so client-side code can reference process.env.POCKETBASE_URL)
     define: {
         "process.env.NODE_ENV": JSON.stringify("production"),
-        "process.env.POCKETBASE_URL": JSON.stringify(
-            process.env.POCKETBASE_URL
-        ),
     },
     ...cliConfig, // Merge in any CLI-provided options
 });
