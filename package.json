@@ -39,7 +39,7 @@
         "lucide-react": "^0.514.0",
         "node-html-markdown": "^1.3.0",
         "openai": "^5.1.1",
-        "pdf-parse": "github.com:Dmrgn/pdf-parse.git",
+        "pdf-parse": "https://github.com/Dmrgn/pdf-parse.git",
         "pocketbase": "^0.26.0",
         "react": "^19",
         "react-dom": "^19",

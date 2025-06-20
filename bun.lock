@@ -28,7 +28,7 @@
         "lucide-react": "^0.514.0",
         "node-html-markdown": "^1.3.0",
         "openai": "^5.1.1",
-        "pdf-parse": "github.com:Dmrgn/pdf-parse.git",
+        "pdf-parse": "https://github.com/Dmrgn/pdf-parse.git",
         "pocketbase": "^0.26.0",
         "react": "^19",
         "react-dom": "^19",
@@ -824,7 +824,7 @@
 
     "pathe": ["pathe@1.1.2", "", {}, "sha512-whLdWMYL2TwI08hn8/ZqAbrVemu0LNaNNJZX73O6qaIdCTfXutsLhMkjdENX0qhsQ9uIimo4/aQOmXkoon2nDQ=="],
 
-    "pdf-parse": ["pdf-parse@git+ssh://github.com:Dmrgn/pdf-parse.git#81a92061c64ed32afb0e415260849cf6713d4076", { "dependencies": { "debug": "^3.1.0", "node-ensure": "^0.0.0" } }, "81a92061c64ed32afb0e415260849cf6713d4076"],
+    "pdf-parse": ["pdf-parse@github:Dmrgn/pdf-parse#81a9206", { "dependencies": { "debug": "^3.1.0", "node-ensure": "^0.0.0" } }, "Dmrgn-pdf-parse-81a9206"],
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
