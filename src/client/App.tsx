@@ -109,7 +109,7 @@ export default function App() {
     return (
         <Card className="bg-card/50 backdrop-blur-sm border-muted min-h-[80%] max-w-[1200px] w-[97%]">
             <CardHeader>
-                <CardTitle>Exam Buster Dashboard</CardTitle>
+                <CardTitle>Delsilon Dashboard</CardTitle>
                 <CardDescription>Use the sidebar to access Prep Plans or AI Chat.</CardDescription>
             </CardHeader>
             <CardContent>

@@ -153,7 +153,7 @@ export default function ChatMessenger() {
                         </AvatarFallback>
                     </Avatar>
                     <div>
-                        <h3 className="font-semibold">Henry</h3>
+                        <h3 className="font-semibold">Delsilon</h3>
                         <p className="text-sm text-muted-foreground">Online</p>
                     </div>
                 </div>

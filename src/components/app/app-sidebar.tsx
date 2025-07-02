@@ -35,7 +35,7 @@ export function AppSidebar() {
     const [allClasses, setAllClasses] = useState<Array<Class>>([]);
     const [currentClass, setCurrentClass] = useState<string>(null);
     const [navItems, setNavItems] = useState([
-        { title: 'Dashboard', url: '/', icon: Home },
+        { title: 'Dashboard', url: '/class/1', icon: Home },
         { title: 'Exam Buster', url: '/prep', icon: ClipboardList },
     ]);
 
@@ -55,7 +55,7 @@ export function AppSidebar() {
         pb.collection('classes').getOne(classQueryParam).then((classRecord) => {
             setCurrentClass(classRecord.id);
             setNavItems([
-                { title: 'Dashboard', url: '/', icon: Home },
+                { title: 'Dashboard', url: '/class/1', icon: Home },
                 { title: 'Exam Buster', url: `/class/${classRecord.id}/prep`, icon: ClipboardList },
             ]);
             pb.collection('chats')
@@ -71,7 +71,7 @@ export function AppSidebar() {
                     // create default class
                     pb.collection('classes').create({
                         name: "Default Class",
-                        color: "#2691d9", // app default color,
+                        color: "#ad70c2", // app default color,
                         userId: user.id,
                     }).then((classRecord) => {
                         navigate({ pathname: `/class/${classRecord.id}` });

@@ -13,7 +13,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { pb } from "@/lib/db";
 import type { Class } from "./app-sidebar";
 
@@ -27,10 +27,12 @@ export function ClassSwitcher() {
     const { isMobile } = useSidebar()
     const { classId } = useParams();
 
+    const navigate = useNavigate();
+
     const [allClasses, setAllClasses] = useState<Class[]>([]);
     const [activeClass, setActiveClass] = useState<Class>({
         name: "",
-        color: "#ff0000",
+        color: "#000000",
         userId: "",
         id: ""
     });
@@ -85,7 +87,7 @@ export function ClassSwitcher() {
                             </DropdownMenuItem>
                         ))}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="gap-2 p-2">
+                        <DropdownMenuItem onClick={()=>navigate(`/class/${activeClass.id}/manage`)}  className="gap-2 p-2">
                             <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                                 <Settings className="size-4" />
                             </div>

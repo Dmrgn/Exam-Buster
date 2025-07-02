@@ -9,14 +9,25 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { pb } from "@/lib/db";
 import { getInitialUsage } from "../../lib/subscription"; // Added for initial usage
+import { useNavigate } from "react-router-dom"
 
 export function LoginForm({
     className,
     isRegister,
 }: { className: string | undefined, isRegister: boolean }) {
+
+    const navigate = useNavigate();
+    
+    // if already logged in then redirect
+    useEffect(()=>{
+        if (pb.authStore?.token) {
+            console.log(pb.authStore?.token);
+            navigate("/class/1");
+        }
+    }, [])
 
     const [errorMessage, setErrorMessage] = useState();
     async function login(event: React.FormEvent<HTMLFormElement>) {
@@ -25,7 +36,7 @@ export function LoginForm({
             const email = (event.currentTarget.elements.namedItem('email') as HTMLInputElement).value;
             const password = (event.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
             const authData = await pb.collection("users").authWithPassword(email, password);
-            window.location.replace("/");
+            navigate("/class/1");
         } catch (e) {
             setErrorMessage(e.message);
         }
@@ -63,7 +74,7 @@ export function LoginForm({
 
     return (
         <div className={cn("flex flex-col w-full gap-6 items-center", className)}>
-            <Card className="max-w-md">
+            <Card className="md:min-w-md">
                 <CardHeader>
                     <CardTitle className="text-3xl text-center">{isRegister ? 'Register' : 'Login'}</CardTitle>
                     <CardDescription>
