@@ -1,15 +1,9 @@
-import ChatMessenger from '@/components/app/chat-messenger';
 import { AppSidebar, type Class } from "@/components/app/app-sidebar";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Input } from "@/components/ui/input";
-import { pb } from '@/lib/db';
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardHeader } from '../ui/card';
 import { Avatar, AvatarFallback } from '@radix-ui/react-avatar';
-import { Clipboard } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { Clipboard, PaintBucket, Trash2 } from 'lucide-react';
 
 interface Chat {
     id: string;
@@ -20,12 +14,15 @@ interface Chat {
     updated: string;
 }
 
-export default function ClassCard({ currentClass, refreshClasses }: { currentClass: Class, refreshClasses: () => Promise<void> }) {
+export default function ClassCard({ currentClass, refreshClasses, onDelete, onUpdate }: { 
+    currentClass: Class;
+    refreshClasses: () => Promise<void>;
+    onDelete: () => Promise<void>;
+    onUpdate: (updatedData: Partial<Class>) => Promise<void>;
+}) {
 
     const [isEditingName, setIsEditingName] = useState(false);
     const [newClassName, setNewClassName] = useState("");
-
-    const { classId } = useParams();
 
     const handleNameClick = () => {
         setIsEditingName(true);
@@ -39,8 +36,7 @@ export default function ClassCard({ currentClass, refreshClasses }: { currentCla
         setIsEditingName(false);
         if (currentClass && newClassName !== currentClass.name && newClassName.trim() !== "") {
             try {
-                await pb.collection('classes').update(currentClass.id, { name: newClassName });
-                await refreshClasses();
+                await onUpdate({name: newClassName});
             } catch (err) {
                 console.error("Error updating chat name:", err);
                 setNewClassName(currentClass.name);
@@ -54,16 +50,39 @@ export default function ClassCard({ currentClass, refreshClasses }: { currentCla
         }
     };
 
+    const colorInputRef = useRef<HTMLInputElement>(null);
+    const colorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     return (
         < Card className="bg-card/50 backdrop-blur-sm border-muted w-full" >
             {/* Header */}
             <CardHeader className="flex items-center justify-between px-4 pb-4 border-b" >
                 <div className="flex items-center space-x-3">
-                    <Avatar className='p-1 rounded-md' style={{ backgroundColor: currentClass.color }}>
-                        <AvatarFallback>
-                            <Clipboard></Clipboard>
-                        </AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                        <Avatar 
+                            className='p-1 rounded-md flex' 
+                            style={{ backgroundColor: currentClass.color }}
+                            onClick={() => colorInputRef.current?.click()}
+                        >
+                            <AvatarFallback>
+                                <PaintBucket></PaintBucket>
+                            </AvatarFallback>
+                        </Avatar>
+                        <input
+                            type="color"
+                            ref={colorInputRef}
+                            value={currentClass.color}
+                            onChange={(e) => {
+                                const newColor = e.target.value;
+                                if (colorTimeoutRef.current) {
+                                    clearTimeout(colorTimeoutRef.current);
+                                }
+                                colorTimeoutRef.current = setTimeout(() => {
+                                    onUpdate({ color: newColor });
+                                }, 500);
+                            }}
+                            style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
+                        />
+                    </div>
                     <div>
                         {isEditingName ? (
                         <Input
@@ -82,6 +101,16 @@ export default function ClassCard({ currentClass, refreshClasses }: { currentCla
                         <p className="text-sm text-muted-foreground">Online</p>
                     </div>
                 </div>
+                <button
+                    onClick={() => {
+                        if (window.confirm('Are you sure you want to delete this class?')) {
+                            onDelete();
+                        }
+                    }}
+                    className="ml-auto text-muted-foreground hover:text-destructive"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </button>
             </CardHeader >
         </Card >
     );

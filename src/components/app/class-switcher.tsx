@@ -52,6 +52,11 @@ export function ClassSwitcher() {
         pb.autoCancellation(true);
     }, [classId])
 
+    async function changeClasses(classId: string) {
+        setActiveClass(allClasses.find(x => x.id === classId) ?? activeClass);
+        await navigate(`/class/${classId}`);
+    }
+
     return (
         <SidebarMenu>
             <SidebarMenuItem>
@@ -79,7 +84,7 @@ export function ClassSwitcher() {
                     >
                         <DropdownMenuLabel className="text-xs text-muted-foreground">Classes</DropdownMenuLabel>
                         {allClasses.map((classItem, index) => (
-                            <DropdownMenuItem key={classItem.name} onClick={() => setActiveClass(classItem)} className="gap-2 p-2">
+                            <DropdownMenuItem key={classItem.name} onClick={() => changeClasses(classItem.id)} className="gap-2 p-2">
                                 <div className="flex size-6 items-center justify-center rounded-sm border">
                                     <div className="size-4 shrink-0" style={{ backgroundColor: classItem.color }} />
                                 </div>
@@ -87,7 +92,7 @@ export function ClassSwitcher() {
                             </DropdownMenuItem>
                         ))}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={()=>navigate(`/class/${activeClass.id}/manage`)}  className="gap-2 p-2">
+                        <DropdownMenuItem onClick={() => navigate(`/class/${activeClass.id}/manage`)} className="gap-2 p-2">
                             <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                                 <Settings className="size-4" />
                             </div>
