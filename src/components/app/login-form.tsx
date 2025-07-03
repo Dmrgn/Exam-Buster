@@ -59,7 +59,7 @@ export function LoginForm({
             const authData = await pb.collection("users").authWithPassword(email, password);
             
             // Set default plan and initial usage for the new user
-            const defaultPlanId = "j2ty5q282cortmn"; // "pro" plan ID
+            const defaultPlanId = "hk0f8e43b3rep7d"; // "pro" plan ID
             const initialUsageData = getInitialUsage();
             await pb.collection('users').update(newUser.id, {
                 plan: defaultPlanId,
