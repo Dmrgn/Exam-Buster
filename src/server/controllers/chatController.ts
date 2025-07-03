@@ -9,6 +9,31 @@ import type { UserRecord, PlanRecord } from '../../lib/subscription';
 import { cerebras, openai, CHAT_SYSTEM_PROMPT, CHAT_TOOLS, replicate, IMAGE_ASPECT_RATIOS } from '@/lib/ai';
 import { config } from '../../lib/config.server';
 import { NodeHtmlMarkdown } from 'node-html-markdown'
+import embeddings from "@themaximalist/embeddings.js";
+
+function cosineSimilarity(vecA: number[], vecB: number[]): number {
+    const dotProduct = vecA.reduce((acc, val, i) => acc + val * vecB[i], 0);
+    const magA = Math.sqrt(vecA.reduce((acc, val) => acc + val * val, 0));
+    const magB = Math.sqrt(vecB.reduce((acc, val) => acc + val * val, 0));
+    return dotProduct / (magA * magB);
+}
+
+async function queryTextbook(query: string, classId: string): Promise<any[]> {
+    const queryEmbedding = await embeddings(query);
+
+    const chunks = await pb.collection('textbook_chunks').getFullList({
+        filter: `classId = "${classId}"`,
+    });
+    
+    const scoredChunks = chunks.map(chunk => {
+        console.log(chunk);
+        const chunkEmbedding = chunk.embedding;
+        const score = cosineSimilarity(queryEmbedding, chunkEmbedding);
+        return { ...chunk, score };
+    });
+
+    return scoredChunks.sort((a, b) => b.score - a.score).slice(0, 5);
+}
 
 /**
  * POST /api/chat
@@ -173,6 +198,11 @@ export async function postChat(req: BunRequest): Promise<Response> {
                     const textContent = await (await fetch(args.url)).text();
                     const markdown = NodeHtmlMarkdown.translate(textContent);
                     toolMsgs.push({ role: 'tool', content: markdown.slice(0, 3000), tool_call_id: fnCall.id });
+                } else if (fn.name === 'query_textbook') {
+                    const { query } = args;
+                    const results = await queryTextbook(query, chat.class);
+                    const context = results.map(r => `Page ${r.metadata.page}: ${r.chunk_text}`).join('\n\n');
+                    toolMsgs.push({ role: 'tool', content: `Context from textbook:\n${context}`, tool_call_id: fnCall.id });
                 } else if (fn.name === 'desmos') {
                     // Check for 'graphing' feature
                     await checkAndUpdateUsage(userId, 'graphing', 1);

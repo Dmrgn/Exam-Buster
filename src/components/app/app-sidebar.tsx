@@ -22,7 +22,15 @@ import {
 import { Button } from '../ui/button'
 
 export type Chat = { id: string, name: string, topic: string, messages: any[] | null };
-export type Class = { id: string, color: string, name: string, userId: string };
+export type Class = {
+    id: string;
+    color: string;
+    name: string;
+    userId: string;
+    textbook_status: string;
+    textbook?: string;
+    textbook_job_id: string;
+};
 
 export function AppSidebar() {
     const user = pb.authStore.record ? {

@@ -148,6 +148,24 @@ export const CHAT_TOOLS = [
                 required: ["expressions"],
             }
         }
+    },
+    {
+        type: "function",
+        function: {
+            name: "query_textbook",
+            strict: true,
+            description: "Queries the textbook of the user's current class for passages with similar text to the given query. Always cite the pages you get information from in your response.",
+            parameters: {
+                type: "object",
+                properties: {
+                    query: {
+                        type: "string",
+                        description: "The query to search for in the textbook."
+                    }
+                },
+                required: ["query"],
+            }
+        }
     }
 ]
 

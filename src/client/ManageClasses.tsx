@@ -36,7 +36,9 @@ export default function ClassesScreen() {
         name: "",
         color: "#000000",
         userId: "",
-        id: ""
+        id: "",
+        textbook_job_id: "",
+        textbook_status: ""
     });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
@@ -49,19 +51,13 @@ export default function ClassesScreen() {
         setError("");
         pb.autoCancellation(false);
         try {
-            const classes = await pb.collection('classes').getList(1, 20, { 
-                filter: `userId = "${user?.id}"`, 
-                sort: '-created' 
+            const classes = await pb.collection('classes').getList(1, 20, {
+                filter: `userId = "${user?.id}"`,
+                sort: '-created'
             });
-            const mappedClasses = classes.items.map(item => ({
-                id: item.id,
-                name: item.name,
-                color: item.color,
-                userId: item.userId
-            }));
-            setAllClasses(mappedClasses);
+            setAllClasses(classes.items as any as Class[]);
             if (classId) {
-                const classRecord = mappedClasses.find(x => x.id === classId);
+                const classRecord = (classes.items as any as Class[]).find(x => x.id === classId);
                 if (classRecord) {
                     setActiveClass(classRecord);
                 }
@@ -82,15 +78,16 @@ export default function ClassesScreen() {
     const createClass = async () => {
         if (!user) return
         try {
-            await pb.collection('classes').create({
+            const newClass = await pb.collection('classes').create({
                 name: className,
                 color: classColor,
                 userId: user.id
-            })
+            });
             setClassName('')
             setClassColor('#000000')
             setIsCreatingClass(false)
             await refreshClasses()
+            navigate(`/class/${newClass.id}`);
         } catch (error) {
             console.error('Class creation failed:', error)
             setError("Class creation failed. Please try again.")
@@ -138,12 +135,18 @@ export default function ClassesScreen() {
                 </div>
             ) : (
                 <>
+                    <div className="flex flex-col gap-4">
+                        {allClasses.map((currentClass, index) => (
+                            <ClassCard
+                                key={index}
+                                currentClass={currentClass}
+                                refreshClasses={refreshClasses}
+                                onDelete={() => deleteClass(currentClass.id)}
+                                onUpdate={(updatedData) => updateClass(currentClass.id, updatedData)}
+                            ></ClassCard>
+                        ))}
+                    </div>
                     <Sheet open={isCreatingClass} onOpenChange={setIsCreatingClass}>
-                        <SheetTrigger asChild>
-                            <Button className="fixed bottom-4 right-4 h-14 w-14 rounded-full" size="icon">
-                                <Plus className="h-8 w-8" />
-                            </Button>
-                        </SheetTrigger>
                         <SheetContent side="right">
                             <Card className="mb-4 rounded-none">
                                 <CardHeader>
@@ -153,8 +156,8 @@ export default function ClassesScreen() {
                                     <div className="mt-4 space-y-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="className">Class Name</Label>
-                                            <Input 
-                                                id="className" 
+                                            <Input
+                                                id="className"
                                                 value={className}
                                                 onChange={(e) => setClassName(e.target.value)}
                                                 placeholder="Enter class name"
@@ -162,14 +165,14 @@ export default function ClassesScreen() {
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="classColor">Class Color</Label>
-                                            <Input 
-                                                id="classColor" 
+                                            <Input
+                                                id="classColor"
                                                 type="color"
                                                 value={classColor}
                                                 onChange={(e) => setClassColor(e.target.value)}
                                             />
                                         </div>
-                                        <Button 
+                                        <Button
                                             onClick={createClass}
                                             disabled={!className.trim()}
                                         >
@@ -179,18 +182,13 @@ export default function ClassesScreen() {
                                 </CardHeader>
                             </Card>
                         </SheetContent>
+                        <SheetTrigger asChild>
+                            <Button className="mt-4">
+                                <Plus className="h-8 w-8" />
+                                New Class
+                            </Button>
+                        </SheetTrigger>
                     </Sheet>
-                    <div className="flex flex-col gap-4">
-                        {allClasses.map((currentClass, index) => (
-                            <ClassCard 
-                                key={index} 
-                                currentClass={currentClass} 
-                                refreshClasses={refreshClasses}
-                                onDelete={() => deleteClass(currentClass.id)}
-                                onUpdate={(updatedData) => updateClass(currentClass.id, updatedData)}
-                            ></ClassCard>
-                        ))}
-                    </div>
                 </>
             )}
         </div>

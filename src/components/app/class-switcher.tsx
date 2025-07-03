@@ -34,7 +34,9 @@ export function ClassSwitcher() {
         name: "",
         color: "#000000",
         userId: "",
-        id: ""
+        id: "",
+        textbook_status: "",
+        textbook_job_id: ""
     });
 
     useEffect(() => {
@@ -42,12 +44,7 @@ export function ClassSwitcher() {
         pb.collection('classes').getList(1, 20, { filter: `userId = "${user.id}"`, sort: '-created' }).then((classes) => {
             setAllClasses(classes.items as any as Class[]);
             const classRecord = classes.items.find(x => x.id === classId);
-            setActiveClass({
-                name: classRecord.name,
-                color: classRecord.color,
-                userId: classRecord.userId,
-                id: classRecord.id
-            });
+            setActiveClass(classRecord as any as Class);
         });
         pb.autoCancellation(true);
     }, [classId])

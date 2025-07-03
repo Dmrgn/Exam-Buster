@@ -4,6 +4,7 @@ import { config } from '@/lib/config.server';
 import { getSummary } from './controllers/summaryController';
 import { getPrep } from './controllers/prepController';
 import { postChat } from './controllers/chatController';
+import { textbookRoutes } from './routes/textbook';
 import { pb } from "@/lib/db"
 import pwaManifest from "@/client/manifest.json";
 
@@ -11,6 +12,7 @@ pb.collection('_superusers').authWithPassword(process.env["SUPER_USER_EMAIL"], p
 
 const server = serve({
     routes: {
+        ...textbookRoutes,
         '/*': index,
         '/api/summary': { GET: getSummary },
         '/api/prep': { GET: getPrep },

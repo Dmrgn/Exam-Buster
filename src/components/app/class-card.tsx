@@ -1,9 +1,11 @@
 import { AppSidebar, type Class } from "@/components/app/app-sidebar";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState, useRef } from "react";
-import { Card, CardHeader } from '../ui/card';
+import { Card, CardHeader, CardContent } from '../ui/card';
 import { Avatar, AvatarFallback } from '@radix-ui/react-avatar';
-import { Clipboard, PaintBucket, Trash2 } from 'lucide-react';
+import { Clipboard, PaintBucket, Trash2, Upload } from 'lucide-react';
+import UploadTextbook from "./upload-textbook";
+import { Button } from "../ui/button";
 
 interface Chat {
     id: string;
@@ -23,6 +25,7 @@ export default function ClassCard({ currentClass, refreshClasses, onDelete, onUp
 
     const [isEditingName, setIsEditingName] = useState(false);
     const [newClassName, setNewClassName] = useState("");
+    const [showUpload, setShowUpload] = useState(false);
 
     const handleNameClick = () => {
         setIsEditingName(true);
@@ -112,6 +115,31 @@ export default function ClassCard({ currentClass, refreshClasses, onDelete, onUp
                     <Trash2 className="h-4 w-4" />
                 </button>
             </CardHeader >
+            <CardContent>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h4 className="font-semibold">Textbook</h4>
+                        <p className="text-sm text-muted-foreground">
+                            Status: <span className="font-medium">{currentClass.textbook_status || 'Not Uploaded'}</span>
+                        </p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setShowUpload(!showUpload)}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        {showUpload ? 'Cancel' : 'Upload Textbook'}
+                    </Button>
+                </div>
+                {showUpload && (
+                    <div className="mt-2">
+                        <UploadTextbook
+                            classId={currentClass.id}
+                            onComplete={() => {
+                                setShowUpload(false);
+                                refreshClasses();
+                            }}
+                        />
+                    </div>
+                )}
+            </CardContent>
         </Card >
     );
 }
