@@ -29,7 +29,7 @@ import ChatInput from "./chat-input";
 import { useParams } from "react-router-dom";
 
 interface Message {
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'system';
     content: string;
 }
 
@@ -124,7 +124,7 @@ export default function ChatMessenger() {
     async function sendMessage(input: string, files: FileList | undefined): Promise<void> {
         setLoading(true);
         if (messages && messages.length > 0)
-            setMessages([...messages, { role: 'user', content: input }]);
+            setMessages([...messages, { role: 'user' as const, content: input }]);
         // check for uploaded files
         let fileNames = [];
         if (files !== undefined && files.length > 0) {
@@ -133,13 +133,61 @@ export default function ChatMessenger() {
         // Build payload for /api/chat: always includes chatId
         const payload: any = { userId, chatId: chatId, content: input, files: fileNames };
         // Send to server for AI response and persistence
-        await fetch('/api/chat', {
+        const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
-        await fetchMessages(chatId);
+
         setLoading(false);
+
+        if (!response.body) return;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let assistantMessage: Message = { role: 'assistant', content: '' };
+        setMessages(prev => [...(prev || []), assistantMessage]);
+
+        let done = false;
+        while (!done) {
+            const { value, done: readerDone } = await reader.read();
+            done = readerDone;
+            const chunk = decoder.decode(value, { stream: true });
+            const events = chunk.split('\n').filter(Boolean);
+
+            for (const event of events) {
+                try {
+                    const data = JSON.parse(event);
+                    if (data.type === 'token') {
+                        assistantMessage.content += data.content;
+                        setMessages(prev => {
+                            const newMessages = [...prev];
+                            newMessages[newMessages.length - 1] = { ...assistantMessage };
+                            return newMessages;
+                        });
+                    } else if (data.type === 'tool_call') {
+                        const toolCallMessage: Message = {
+                            role: 'system',
+                            content: `Using tool: ${data.name} with arguments: ${JSON.stringify(data.args)}`
+                        };
+                        setMessages(prev => [...(prev.slice(0, -1)), toolCallMessage, assistantMessage]);
+                    } else if (data.type === 'tool_response') {
+                        // Optionally display tool responses for debugging or clarity
+                    } else if (data.type === 'error') {
+                        console.error('Streaming error:', data.error);
+                        assistantMessage.content = `An error occurred: ${data.error}`;
+                        setMessages(prev => {
+                            const newMessages = [...prev];
+                            newMessages[newMessages.length - 1] = { ...assistantMessage };
+                            return newMessages;
+                        });
+                        return;
+                    }
+                } catch (e) {
+                    // might not be a json object
+                }
+            }
+        }
+        await fetchMessages(chatId);
     }
 
     return (
@@ -176,8 +224,25 @@ export default function ChatMessenger() {
 
                     {messages?.map((message, index) => {
                         // summary: first line or truncated
-                        const firstLine = message.content.trim().split("\n")[0]
-                        const preview = firstLine.length > 50 ? firstLine.slice(0, 50) + "..." : firstLine
+                        const messageContent = message.content.trim();
+                        let preview = "";
+                        if (messageContent.includes("</think>")) {
+                            const responseText = messageContent.slice(messageContent.indexOf("</think>") + "</think> ".length);
+                            preview = responseText.length > 50 ? responseText.slice(0, 50) + "..." : responseText
+                        } else {
+                            const responseText = messageContent.slice(messageContent.indexOf("<think>") + "<think> ".length);
+                            preview = responseText.length > 50 ? responseText.slice(0, 50) + "..." : responseText
+                        }
+                        if (message.role === 'system') { // this is for tool calls 
+                            return (
+                                <div key={index} className="flex justify-center">
+                                    <div className="text-sm text-muted bg-secondary rounded-lg px-3 py-1">
+                                        {messageContent}
+                                    </div>
+                                </div>
+                            )
+                        }
+                        if (preview.trim() === "") return <></>
                         return (
                             <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} items-start space-x-2`}>
                                 <div
@@ -259,47 +324,100 @@ export default function ChatMessenger() {
     )
 }
 function RichMessageText({ message }: { message: Message }) {
-    return <div className="max-w-[70vw] overflow-x-auto prose prose-invert">
-        <ReactMarkdown
-            components={{
-                code({ node, className, children, ...props }) {
-                    const match = /language-desmos/.exec(className || '');
-                    if (match) {
-                        const expressions =
-                            children.split("\n")
-                                .filter(Boolean);
+    const thinkRegex = /<think>(.*?)<\/think>/s;
+    const incompleteThinkRegex = /<think>(.*)/s;
 
-                        const iframeContent = `
-                            <!DOCTYPE html>
-                            <html>
-                            <head>
-                            <script src="https://www.desmos.com/api/v1.7/calculator.js?apiKey=${DESMOS_API_KEY}"></script>
-                            </head>
-                            <body>
-                            <div id="calculator" style="width: 95vw; height: 95vh;"></div>
-                            <script>
-                                var elt = document.getElementById('calculator');
-                                var calculator = Desmos.GraphingCalculator(elt);
-                                calculator.setExpressions([${expressions.map((x, i) => (JSON.stringify({ id: i, latex: x }))).join(", ")}]);
-                            <\/script>
-                            </body>
-                            </html>
-                        `;
+    let contentToRender = message.content;
+    let thinkContent = '';
+    let hasThinkBlock = false;
 
-                        const blob = new Blob([iframeContent], { type: 'text/html' });
-                        const url = URL.createObjectURL(blob);
-                        return (
-                            <iframe src={url} className="max-w-[70vw] w-full" width="600" height="600" />
-                        )
+    const thinkMatch = message.content.match(thinkRegex);
+    if (thinkMatch) {
+        hasThinkBlock = true;
+        thinkContent = thinkMatch[1];
+        contentToRender = message.content.replace(thinkRegex, '');
+    } else {
+        const incompleteThinkMatch = message.content.match(incompleteThinkRegex);
+        if (incompleteThinkMatch) {
+            hasThinkBlock = true;
+            thinkContent = incompleteThinkMatch[1];
+            contentToRender = message.content.replace(incompleteThinkRegex, '');
+        }
+    }
+
+    return (
+        <div className="max-w-[70vw] overflow-x-auto prose prose-invert">
+            {hasThinkBlock && (
+                <ThinkingBox content={thinkContent} />
+            )}
+            <ReactMarkdown
+                components={{
+                    code({ node, className, children, ...props }) {
+                        const match = /language-desmos/.exec(className || '');
+                        if (match) {
+                            const textContent = Array.isArray(children)
+                                ? children.map(child => String(child).trim()).join('\n')
+                                : String(children).trim();
+                            const expressions = textContent.split("\n").filter(Boolean);
+
+                            const iframeContent = `
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <script src="https://www.desmos.com/api/v1.7/calculator.js?apiKey=${DESMOS_API_KEY}"></script>
+                                </head>
+                                <body>
+                                    <div id="calculator" style="width: 95vw; height: 95vh;"></div>
+                                    <script>
+                                        var elt = document.getElementById('calculator');
+                                        var calculator = Desmos.GraphingCalculator(elt);
+                                        calculator.setExpressions([${expressions.map((x, i) => (JSON.stringify({ id: i, latex: x }))).join(", ")}]);
+                                    </script>
+                                </body>
+                                </html> 
+                            `;
+
+                            const iframeRef = useRef(null);
+
+                            useEffect(() => {
+                                if (iframeRef.current) {
+                                    iframeRef.current.srcdoc = iframeContent;
+                                }
+                            }, []);
+
+                            return (
+                                <iframe ref={iframeRef} className="max-w-[70vw] w-full" width="600" height="600" />
+                            )
+                        }
+                        return <code className={className} {...props}>{children}</code>
                     }
-                    return <code className={className} {...props}>{children}</code>
-                }
-            }}
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-        >
-            {message.content}
-        </ReactMarkdown>
-    </div>
+                }}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+            >
+                {contentToRender}
+            </ReactMarkdown>
+        </div>
+    );
 }
 
+function ThinkingBox({ content }: { content: string }) {
+    const preview = content.trim().split("\n")[0];
+    return (
+        <Accordion type="single" collapsible className="w-full p-0 m-0">
+            <AccordionItem value="thinking-box" className="p-0 m-0">
+                <AccordionTrigger className="text-sm text-muted-foreground p-0 m-0">
+                    Thinking Process: {preview.length > 50 ? preview.slice(0, 50) + "..." : preview}
+                </AccordionTrigger>
+                <AccordionContent className="p-0 m-0">
+                    <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                    >
+                        {content}
+                    </ReactMarkdown>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+    );
+}

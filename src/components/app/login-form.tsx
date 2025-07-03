@@ -24,7 +24,6 @@ export function LoginForm({
     // if already logged in then redirect
     useEffect(()=>{
         if (pb.authStore?.token) {
-            console.log(pb.authStore?.token);
             navigate("/class/1");
         }
     }, [])

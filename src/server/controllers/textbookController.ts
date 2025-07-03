@@ -61,8 +61,6 @@ async function processTextbook(jobId: string, pdfBuffer: Buffer, classId: string
         }
     });
 
-    console.log(data.text); 
-
     jobs.set(jobId, { status: 'completed', progress: 100, stage: 'Done' });
     await pb.collection('classes').update(classId, {
         textbook_status: 'ready',
@@ -89,16 +87,12 @@ export async function uploadTextbook(classId: string, file: File) {
         });
     });
 
-    console.log(file, classId);
-
     // Update the class to indicate processing has started
     await pb.collection('classes').update(classId, {
         textbook_status: 'processing',
         textbook: file,
         textbook_job_id: jobId,
     });
-
-    console.log("there");
 
     return { jobId };
 }
