@@ -32,9 +32,10 @@ export default function App() {
             try {
                 // Fetch the user record with expanded plan
                 pb.autoCancellation(false);
-                const currentUser = await pb.collection('users').getOne<UserRecord>(pb.authStore.record.id, {
-                    expand: 'plan',
-                });
+                const currentUser = await pb.collection('users').getOne<UserRecord>(pb.authStore.record.id);
+                const plan = await pb.collection('plans').getOne<PlanRecord>(currentUser.plan);
+                currentUser.expand = {};
+                currentUser.expand.plan = plan;
                 pb.autoCancellation(true);
                 setUser(currentUser);
             } catch (err: any) {
@@ -113,7 +114,6 @@ export default function App() {
                 <CardDescription>Use the sidebar to access Prep Plans or AI Chat.</CardDescription>
             </CardHeader>
             <CardContent>
-                {JSON.stringify(user)}
                 {chartData.length > 0 && (
                     <div className="mt-4">
                         <div className='flex items-center gap-2 mb-2'>
