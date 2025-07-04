@@ -32,10 +32,9 @@ export default function App() {
             try {
                 // Fetch the user record with expanded plan
                 pb.autoCancellation(false);
-                const currentUser = await pb.collection('users').getOne<UserRecord>(pb.authStore.record.id);
-                const plan = await pb.collection('plans').getOne<PlanRecord>(currentUser.plan);
-                currentUser.expand = {};
-                currentUser.expand.plan = plan;
+                const currentUser = await pb.collection('users').getOne<UserRecord>(pb.authStore.record!.id, {
+                    expand: 'plan',
+                });
                 pb.autoCancellation(true);
                 setUser(currentUser);
             } catch (err: any) {
