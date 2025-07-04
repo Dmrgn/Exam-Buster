@@ -3,9 +3,9 @@
 const CACHE_NAME = 'exam-buster-cache-v1';
 const urlsToCache = [
     '/',
-    '/index.html',
     '/manifest.json',
-    '/public/thundr.png'
+    '/public/thundrbig.png',
+    '/public/thundrsmall.png'
 ];
 
 self.addEventListener('install', (event) => {
