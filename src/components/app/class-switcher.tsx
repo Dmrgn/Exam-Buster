@@ -67,8 +67,8 @@ export function ClassSwitcher() {
                                 <div className="size-4" />
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
-                                <span className="truncate font-semibold">{activeClass.name}</span>
-                                <span className="truncate text-xs">{activeClass.plan}</span>
+                                <span className="truncate font-semibold">{activeClass?.name}</span>
+                                <span className="truncate text-xs">{activeClass?.plan}</span>
                             </div>
                             <ChevronsUpDown className="ml-auto" />
                         </SidebarMenuButton>
